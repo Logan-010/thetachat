@@ -1,7 +1,7 @@
 .PHONY: build
 build:
 	mkdir -p bin
-	go build -o bin/tce ./src
+	go build -ldflags="-s -w" -o bin/tce ./src
 
 .PHONY: run
 run:
