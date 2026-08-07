@@ -12,3 +12,4 @@ This includes but is not limited to:
 θchat is implemented with state-of-the-art networking & cryptography primitives, built on top of LibP2P - a P2P networking framework.
 
 View the Q&A [here](./QA.md).
+View the θchat spec [here](./SPEC.md).
