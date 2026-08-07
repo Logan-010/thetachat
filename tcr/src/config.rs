@@ -8,6 +8,8 @@ use tokio::{fs, io};
 pub struct Config {
     identity: String,
     pub addrs: Vec<Multiaddr>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_addrs: Vec<Multiaddr>,
 }
 
 impl Default for Config {
@@ -22,6 +24,7 @@ impl Default for Config {
                 "/ip6/::/tcp/8801/ws".parse().expect("Valid address"),
                 "/ip4/0.0.0.0/tcp/8801/ws".parse().expect("Valid address"),
             ],
+            external_addrs: Vec::new(),
         }
     }
 }

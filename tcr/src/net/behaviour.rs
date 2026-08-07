@@ -1,4 +1,4 @@
-use libp2p::{identify, identity::Keypair, ping, relay, rendezvous, swarm::NetworkBehaviour};
+use libp2p::{identify, identity::Keypair, ping, relay, rendezvous, swarm::NetworkBehaviour, upnp};
 
 const THETACHAT_PROTO: &str = concat!("/thetachat/relay/", env!("CARGO_PKG_VERSION"));
 
@@ -8,6 +8,7 @@ pub struct Behaviour {
     relay: relay::Behaviour,
     rendezvous: rendezvous::server::Behaviour,
     identify: identify::Behaviour,
+    upnp: upnp::tokio::Behaviour,
 }
 
 impl Behaviour {
@@ -20,6 +21,7 @@ impl Behaviour {
                 String::from(THETACHAT_PROTO),
                 keypair.public(),
             )),
+            upnp: upnp::tokio::Behaviour::default(),
         }
     }
 }
