@@ -1,9 +1,9 @@
 [package]
-name = "tcn"
+name = "tcr"
 version = "0.1.0"
 edition = "2024"
 authors = ["Logan-010"]
-description = "θchat (thetachat) Node"
+description = "θchat (thetachat) relay"
 
 [dependencies]
 base64 = "0.23.1"

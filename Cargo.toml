@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["tcn"]
+members = ["tcr"]
 
 [profile.release]
 lto = "fat"

@@ -26,16 +26,16 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
                 tracing::info!(
                     "Listening on \"{}\"",
                     address.with(Protocol::P2p(*swarm.local_peer_id()))
-                )
+                );
             }
             SwarmEvent::Behaviour(BehaviourEvent::Ping(p)) => {
-                tracing::trace!("Ping event: {:?}", p)
+                tracing::trace!("Ping event: {:?}", p);
             }
             SwarmEvent::Behaviour(BehaviourEvent::Relay(r)) => {
-                tracing::trace!("Relay event: {:?}", r)
+                tracing::trace!("Relay event: {:?}", r);
             }
             SwarmEvent::Behaviour(BehaviourEvent::Rendezvous(r)) => {
-                tracing::trace!("Rendezvous event: {:?}", r)
+                tracing::trace!("Rendezvous event: {:?}", r);
             }
             ev => tracing::trace!("Swarm event: {:?}", ev),
         }
