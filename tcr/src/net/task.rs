@@ -2,8 +2,15 @@ use crate::{
     config::Config,
     net::behaviour::{Behaviour, BehaviourEvent},
 };
+use cid::Cid;
 use libp2p::{
-    SwarmBuilder, futures::StreamExt, multiaddr::Protocol, noise, swarm::SwarmEvent, upnp, yamux,
+    SwarmBuilder,
+    futures::StreamExt,
+    kad::{self, store::RecordStore},
+    multiaddr::Protocol,
+    noise,
+    swarm::SwarmEvent,
+    upnp, yamux,
 };
 
 pub async fn task(config: Config) -> color_eyre::Result<()> {
@@ -38,8 +45,17 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             SwarmEvent::Behaviour(BehaviourEvent::Relay(r)) => {
                 tracing::trace!("Relay event: {:?}", r);
             }
-            SwarmEvent::Behaviour(BehaviourEvent::Rendezvous(r)) => {
-                tracing::trace!("Rendezvous event: {:?}", r);
+            SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::InboundRequest {
+                request: kad::InboundRequest::AddProvider { record: Some(p) },
+            })) => {
+                if Cid::try_from(p.key.as_ref()).is_ok()
+                    && let Err(e) = swarm.behaviour_mut().kad.store_mut().add_provider(p)
+                {
+                    tracing::warn!("Failed to add provider record: {}", e);
+                }
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Kad(k)) => {
+                tracing::trace!("Kad event: {:?}", k);
             }
             SwarmEvent::Behaviour(BehaviourEvent::Identify(i)) => {
                 tracing::trace!("Identify event: {:?}", i);

@@ -6,7 +6,7 @@ A _relay_ is simply a LibP2P Node listening on a WebSocket that supports the fol
 
 - Ping (/ipfs/ping/1.0.0)
 - Circuit Relay v2 (/libp2p/circuit/relay/0.2.0/hop & /libp2p/circuit/relay/0.2.0/stop)
-- Rendezvous (/libp2p/rendezvous/1.0.0)
+- Kademlia (/ipfs/kad/1.0.0)
 - Identify (/ipfs/id/1.0.0 & /ipfs/id/pus/1.0.0)
 
 ## θcreep(s)
