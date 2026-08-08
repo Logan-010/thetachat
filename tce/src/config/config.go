@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -9,8 +8,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
-	"github.com/libp2p/go-libp2p/core/crypto"
+	crypto "github.com/libp2p/go-libp2p/core/crypto"
 )
 
 type SaveConfig struct {
@@ -34,20 +34,12 @@ type Config struct {
 }
 
 func (c *Config) Keypair() (crypto.PrivKey, error) {
-	r := bytes.NewBuffer([]byte(c.Identity))
-	dec := base64.NewDecoder(base64.StdEncoding, r)
-
-	dat, err := io.ReadAll(dec)
+	dat, err := base64.StdEncoding.DecodeString(c.Identity)
 	if err != nil {
 		return nil, err
 	}
 
-	pk, err := crypto.UnmarshalPrivateKey(dat)
-	if err != nil {
-		return nil, err
-	}
-
-	return pk, nil
+	return crypto.UnmarshalPrivateKey(dat)
 }
 
 func newConfig() Config {
@@ -56,19 +48,18 @@ func newConfig() Config {
 		log.Fatal(err)
 	}
 
-	dat := bytes.NewBuffer(make([]byte, 0))
-	enc := base64.NewEncoder(base64.StdEncoding, dat)
-
-	k, err := crypto.MarshalPrivateKey(pk)
+	dat, err := crypto.MarshalPrivateKey(pk)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if _, err := enc.Write(k); err != nil {
-		log.Fatal(err)
+	return Config{
+		Identity: base64.StdEncoding.EncodeToString(dat),
+		ListenAddrs: []string{
+			"/ip4/0.0.0.0/tcp/8802/ws",
+			"/ip6/::/tcp/8802/ws",
+		},
 	}
-
-	return Config{Identity: dat.String()}
 }
 
 func Init(path string) (*Config, error) {
@@ -78,6 +69,18 @@ func Init(path string) (*Config, error) {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, err
 		} else {
+			parent := filepath.Dir(path)
+
+			if _, err = os.Stat(parent); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					if err = os.MkdirAll(parent, 0777); err != nil {
+						return nil, err
+					}
+				} else {
+					return nil, err
+				}
+			}
+
 			file, err := os.Create(path)
 			if err != nil {
 				return nil, err

@@ -30,7 +30,7 @@ async fn main() -> color_eyre::Result<()> {
         Some(p) => p,
         None => env::home_dir()
             .context("Expected home directory")?
-            .join(".thetachat")
+            .join(".tcr")
             .join("config.toml"),
     };
 
