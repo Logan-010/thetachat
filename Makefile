@@ -8,6 +8,11 @@ build:
 	cd tce && make build
 	cp tce/bin/* bin
 
+.PHONY: install
+install: build
+	sudo cp tcr/target/release/tcr /usr/local/bin
+	sudo cp tce/bin/tce /usr/local/bin
+
 .PHONY: check
 check:
 	cd tce && make check
