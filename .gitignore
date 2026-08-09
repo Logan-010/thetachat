@@ -1,4 +1,5 @@
 /tcr/target
 /tce/bin
 /tcc/node_modules
+/tcc/dist
 /bin
