@@ -12,3 +12,9 @@ build:
 check:
 	cd tce && make check
 	cd tcr && cargo clippy
+
+.PHONY: clean
+clean:
+	cd tcr && rm -rf target
+	cd tce && rm -rf bin
+	rm -rf bin
