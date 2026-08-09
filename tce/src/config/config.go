@@ -25,12 +25,13 @@ type ClientConfig struct {
 }
 
 type Config struct {
-	Identity      string         `json:"identity"`
-	ListenAddrs   []string       `json:"listenAddrs"`
-	ExternalAddrs []string       `json:"externalAddrs"`
-	Rooms         []string       `json:"rooms"`
-	ClientConfig  []ClientConfig `json:"clientConfig"`
-	DefaultConfig SaveConfig     `json:"defaultConfig"`
+	Identity       string         `json:"identity"`
+	ListenAddrs    []string       `json:"listenAddrs"`
+	ExternalAddrs  []string       `json:"externalAddrs"`
+	BootstrapAddrs []string       `json:"bootstrapAddrs"`
+	Rooms          []string       `json:"rooms"`
+	ClientConfig   []ClientConfig `json:"clientConfig"`
+	DefaultConfig  SaveConfig     `json:"defaultConfig"`
 }
 
 func (c *Config) Keypair() (crypto.PrivKey, error) {

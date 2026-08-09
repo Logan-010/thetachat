@@ -2,9 +2,11 @@ use crate::{
     config::Config,
     net::behaviour::{Behaviour, BehaviourEvent},
 };
+use color_eyre::eyre::bail;
 use libp2p::{
     SwarmBuilder,
     futures::StreamExt,
+    identify,
     kad::{self, store::RecordStore},
     multiaddr::Protocol,
     noise,
@@ -24,12 +26,20 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
 
     swarm.behaviour_mut().kad.set_mode(Some(kad::Mode::Server));
 
-    for addr in config.addrs {
+    for addr in config.listen_addrs {
         swarm.listen_on(addr)?;
     }
 
     for addr in config.external_addrs {
         swarm.add_external_address(addr);
+    }
+
+    for mut addr in config.bootstrap_addrs {
+        let Some(Protocol::P2p(id)) = addr.pop() else {
+            bail!("Bootstrap address must end in \"/p2p/*\"");
+        };
+
+        swarm.behaviour_mut().kad.add_address(&id, addr);
     }
 
     loop {
@@ -60,6 +70,17 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             }
             SwarmEvent::Behaviour(BehaviourEvent::Kad(k)) => {
                 tracing::trace!("Kad event: {:?}", k);
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                peer_id,
+                info: identify::Info { listen_addrs, .. },
+                ..
+            })) => {
+                tracing::trace!("Connected to \"{}\"", peer_id);
+
+                for addr in listen_addrs {
+                    swarm.behaviour_mut().kad.add_address(&peer_id, addr);
+                }
             }
             SwarmEvent::Behaviour(BehaviourEvent::Identify(i)) => {
                 tracing::trace!("Identify event: {:?}", i);

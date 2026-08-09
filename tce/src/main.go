@@ -6,6 +6,9 @@ import (
 	"tce/src/swarm"
 
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -21,4 +24,14 @@ func main() {
 		log.Fatal(err)
 	}
 	defer swarm.Close()
+
+	log.Printf("Started swarm for peer \"%s\", press ctrl+c to quit...\n", swarm.Id().String())
+
+	exit := make(chan os.Signal, 1)
+
+	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
+
+	<-exit
+
+	log.Println("Quitting...")
 }
