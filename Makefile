@@ -7,6 +7,8 @@ build:
 	rm -f bin/*.pdb
 	cd tce && make build
 	cp tce/bin/* bin
+	cd tcc && bun i && bun run build
+	cp -r tcc/dist bin/tcc
 
 .PHONY: install
 install: build
@@ -17,9 +19,11 @@ install: build
 check:
 	cd tce && make check
 	cd tcr && cargo clippy
+	cd tcc && bun run build
 
 .PHONY: clean
 clean:
 	cd tcr && rm -rf target
 	cd tce && rm -rf bin
+	cd tcc && rm -rf dist node_modules
 	rm -rf bin
