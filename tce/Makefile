@@ -6,3 +6,7 @@ build:
 .PHONY: run
 run:
 	go run ./src
+
+.PHONY: check
+check:
+	go vet ./src
