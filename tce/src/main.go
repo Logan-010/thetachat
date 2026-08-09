@@ -21,5 +21,4 @@ func main() {
 		log.Fatal(err)
 	}
 	defer swarm.Close()
-
 }

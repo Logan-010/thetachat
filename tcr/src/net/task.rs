@@ -2,7 +2,6 @@ use crate::{
     config::Config,
     net::behaviour::{Behaviour, BehaviourEvent},
 };
-use cid::Cid;
 use libp2p::{
     SwarmBuilder,
     futures::StreamExt,
@@ -22,6 +21,8 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
         .await?
         .with_behaviour(Behaviour::new)?
         .build();
+
+    swarm.behaviour_mut().kad.set_mode(Some(kad::Mode::Server));
 
     for addr in config.addrs {
         swarm.listen_on(addr)?;
@@ -48,7 +49,10 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             SwarmEvent::Behaviour(BehaviourEvent::Kad(kad::Event::InboundRequest {
                 request: kad::InboundRequest::AddProvider { record: Some(p) },
             })) => {
-                if Cid::try_from(p.key.as_ref()).is_ok()
+                let key = p.key.as_ref();
+
+                if key.len() <= 80
+                    && multihash::Multihash::<64>::from_bytes(key).is_ok()
                     && let Err(e) = swarm.behaviour_mut().kad.store_mut().add_provider(p)
                 {
                     tracing::warn!("Failed to add provider record: {}", e);

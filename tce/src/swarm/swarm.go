@@ -4,12 +4,23 @@ import (
 	"tce/src/config"
 
 	libp2p "github.com/libp2p/go-libp2p"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	webrtc "github.com/libp2p/go-libp2p/p2p/transport/webrtc"
 	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
 )
 
-func New(config config.Config) (host.Host, error) {
+type Swarm struct {
+	host host.Host
+	dht  *dht.IpfsDHT
+}
+
+func (s *Swarm) Close() {
+	s.dht.Close()
+	s.host.Close()
+}
+
+func New(config config.Config) (*Swarm, error) {
 	i, err := config.Keypair()
 	if err != nil {
 		return nil, err
@@ -20,5 +31,10 @@ func New(config config.Config) (host.Host, error) {
 		return nil, err
 	}
 
-	return h, nil
+	d, err := dht.New(h, dht.Mode(dht.ModeServer))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Swarm{h, d}, nil
 }
