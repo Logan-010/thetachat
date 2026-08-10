@@ -19,19 +19,14 @@ type SaveConfig struct {
 	SaveAttachments bool `json:"saveAttachments"`
 }
 
-type ClientConfig struct {
-	Name string `json:"name"`
-	SaveConfig
-}
-
 type Config struct {
-	Identity       string         `json:"identity"`
-	ListenAddrs    []string       `json:"listenAddrs"`
-	ExternalAddrs  []string       `json:"externalAddrs"`
-	BootstrapAddrs []string       `json:"bootstrapAddrs"`
-	Rooms          []string       `json:"rooms"`
-	ClientConfig   []ClientConfig `json:"clientConfig"`
-	DefaultConfig  SaveConfig     `json:"defaultConfig"`
+	Identity       string                `json:"identity"`
+	Datastore      string                `json:"datastore"`
+	ListenAddrs    []string              `json:"listenAddrs"`
+	BootstrapAddrs []string              `json:"bootstrapAddrs"`
+	Rooms          []string              `json:"rooms"`
+	ClientConfig   map[string]SaveConfig `json:"clientConfig"`
+	DefaultConfig  SaveConfig            `json:"defaultConfig"`
 }
 
 func (c *Config) Keypair() (crypto.PrivKey, error) {
@@ -43,7 +38,7 @@ func (c *Config) Keypair() (crypto.PrivKey, error) {
 	return crypto.UnmarshalPrivateKey(dat)
 }
 
-func newConfig() Config {
+func newConfig(at string) Config {
 	pk, _, err := crypto.GenerateEd25519Key(rand.Reader)
 	if err != nil {
 		log.Fatal(err)
@@ -55,7 +50,8 @@ func newConfig() Config {
 	}
 
 	return Config{
-		Identity: base64.StdEncoding.EncodeToString(dat),
+		Identity:  base64.StdEncoding.EncodeToString(dat),
+		Datastore: filepath.Join(filepath.Dir(at), "datastore.bin"),
 		ListenAddrs: []string{
 			"/ip4/0.0.0.0/tcp/8802/ws",
 			"/ip6/::/tcp/8802/ws",
@@ -64,7 +60,7 @@ func newConfig() Config {
 }
 
 func Init(path string) (*Config, error) {
-	cfg := newConfig()
+	cfg := newConfig(path)
 
 	if _, err := os.Stat(path); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {

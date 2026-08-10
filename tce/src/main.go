@@ -25,7 +25,21 @@ func main() {
 	}
 	defer swarm.Close()
 
+	log.Println("Bootstrapping...")
+
+	if err := swarm.Bootstrap(); err != nil {
+		log.Fatal(err)
+	}
+
 	log.Printf("Started swarm for peer \"%s\", press ctrl+c to quit...\n", swarm.Id().String())
+
+	for _, room := range cfg.Rooms {
+		go func() {
+			if err := swarm.JoinRoom(room); err != nil {
+				log.Printf("Room task failure: %s\n", err)
+			}
+		}()
+	}
 
 	exit := make(chan os.Signal, 1)
 

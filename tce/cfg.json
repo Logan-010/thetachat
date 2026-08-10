@@ -1,0 +1,16 @@
+{
+  "identity": "CAESQIzzqTlDMcutFDGQKyOOl9qMNZpFi+GBGVUkw+f2QQUdJQJDGZyOHMi5JMCmRPnv+w72UxR1/fEV1cjVxzk5NTs=",
+  "datastore": "datastore.bin",
+  "listenAddrs": [
+    "/ip4/0.0.0.0/tcp/8803/ws",
+    "/ip6/::/tcp/8803/ws"
+  ],
+  "bootstrapAddrs": ["/ip4/127.0.0.1/tcp/8801/ws/p2p/12D3KooWPNT837xBYb4uY7LDDx3fg9AjJ6nHQ333rfSLdoJ6GgRn"],
+  "rooms": ["room1"],
+  "clientConfig": null,
+  "defaultConfig": {
+    "saveMessages": false,
+    "saveMedia": false,
+    "saveAttachments": false
+  }
+}
