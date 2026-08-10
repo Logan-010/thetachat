@@ -81,12 +81,12 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             }
             SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
                 peer_id,
-                info: identify::Info { listen_addrs, .. },
+                info,
                 ..
             })) => {
-                tracing::trace!("Connected to \"{}\"", peer_id);
+                tracing::trace!("Received identify from {}: {:?}", peer_id, info);
 
-                for addr in listen_addrs {
+                for addr in info.listen_addrs {
                     swarm.behaviour_mut().kad.add_address(&peer_id, addr);
                 }
             }

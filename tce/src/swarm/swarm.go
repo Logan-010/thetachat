@@ -3,6 +3,7 @@ package swarm
 import (
 	"context"
 	"log"
+	"sync"
 	"tce/src/config"
 	"time"
 
@@ -32,11 +33,15 @@ func (s *Swarm) Bootstrap() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.dht.Bootstrap(ctx); err != nil {
-		return err
+	for s.dht.RoutingTable().Size() == 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
 
-	return nil
+	return s.dht.Bootstrap(ctx)
 }
 
 func (s *Swarm) Close() {
@@ -53,7 +58,7 @@ func New(config config.Config) (*Swarm, error) {
 
 	bootstrap := make([]peer.AddrInfo, 0)
 
-	for _, addr := range config.BootstrapAddrs {
+	for _, addr := range config.Instances {
 		a, err := multiaddr.NewMultiaddr(addr)
 		if err != nil {
 			log.Fatal(err)
@@ -72,7 +77,7 @@ func New(config config.Config) (*Swarm, error) {
 		bootstrap = append(bootstrap, info)
 	}
 
-	h, err := libp2p.New(libp2p.Transport(webrtc.New), libp2p.Transport(websocket.New), libp2p.EnableAutoRelayWithStaticRelays(bootstrap), libp2p.Identity(i), libp2p.ListenAddrStrings(config.ListenAddrs...))
+	h, err := libp2p.New(libp2p.Transport(webrtc.New), libp2p.Ping(true), libp2p.EnableRelay(), libp2p.NATPortMap(), libp2p.Transport(websocket.New), libp2p.EnableAutoRelayWithStaticRelays(bootstrap), libp2p.Identity(i), libp2p.ListenAddrStrings(config.ListenAddrs...))
 	if err != nil {
 		return nil, err
 	}
@@ -82,16 +87,22 @@ func New(config config.Config) (*Swarm, error) {
 		return nil, err
 	}
 
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	for _, info := range bootstrap {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := h.Connect(ctx, info); err != nil {
-			log.Printf("Failed to connect to \"%s\": %s\n", info.ID.String(), err)
-		}
-
-		cancel()
+		wg.Go(func() {
+			if err := h.Connect(ctx, info); err != nil {
+				log.Printf("Failed to connect to \"%s\": %s\n", info.ID.String(), err)
+			}
+		})
 	}
+
+	wg.Wait()
+
+	cancel()
 
 	db, err := bbolt.Open(config.Datastore, 0600, nil)
 	if err != nil {

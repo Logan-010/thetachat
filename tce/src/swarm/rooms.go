@@ -2,45 +2,64 @@ package swarm
 
 import (
 	"context"
-	"errors"
 	"log"
 	"time"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/network"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
 func (s *Swarm) handleMessage(msg *pubsub.Message) error {
-	return errors.New("unimplemented")
+	log.Printf("Got msg: %+v\n", msg)
+
+	return nil
 }
 
 func (s *Swarm) discoverPeers(ctx context.Context, name string) {
-	routingDiscovery := drouting.NewRoutingDiscovery(s.dht)
-	dutil.Advertise(ctx, routingDiscovery, name)
+	log.Printf("Starting discovery for %q", name)
 
-	peerChan, err := routingDiscovery.FindPeers(ctx, name)
+	rd := drouting.NewRoutingDiscovery(s.dht)
+
+	log.Printf("Advertising %q", name)
+	dutil.Advertise(ctx, rd, name)
+	log.Printf("Advertisement initiated for %q", name)
+
+	log.Printf(
+		"DHT routing table contains %d peers",
+		s.dht.RoutingTable().Size(),
+	)
+
+	log.Printf("Finding peers for %q", name)
+
+	peers, err := rd.FindPeers(ctx, name)
 	if err != nil {
-		log.Printf("Failed to discover peers for \"%s\": %s", name, err)
+		log.Printf("FindPeers(%q) failed: %v", name, err)
 		return
 	}
 
-	for peer := range peerChan {
-		if peer.ID == s.host.ID() {
+	for p := range peers {
+		log.Printf("Found peer %s at %v", p.ID, p.Addrs)
+
+		if p.ID == s.host.ID() {
+			continue
+		}
+
+		if s.host.Network().Connectedness(p.ID) == network.Connected {
 			continue
 		}
 
 		c, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
+		err := s.host.Connect(c, p)
+		cancel()
 
-		if err := s.host.Connect(c, peer); err != nil {
-			log.Printf("Failed to connect to peer \"%s\": %s", peer.ID.String(), err)
+		if err != nil {
+			log.Printf("Connect %s failed: %v", p.ID, err)
 			continue
 		}
 
-		cancel()
-
-		log.Printf("Connected to \"%s\"\n", peer.ID.String())
+		log.Printf("Connected to %s", p.ID)
 	}
 }
 
@@ -76,7 +95,5 @@ func (s *Swarm) JoinRoom(name string) error {
 				log.Printf("Failed to handle message: %s\n", err)
 			}
 		}()
-
 	}
-
 }
