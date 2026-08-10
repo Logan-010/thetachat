@@ -9,8 +9,24 @@ description = "θchat (thetachat) relay"
 base64 = "0.23.1"
 clap = { version = "4.6.6", features = ["derive", "env"] }
 color-eyre = "0.6.5"
-libp2p = { version = "0.56.0", features = ["tcp", "noise", "yamux", "websocket", "macros", "tokio", "relay", "ping", "dns", "serde", "identify", "upnp", "kad"] }
+libp2p = { version = "0.56.0", features = [
+    "tcp",
+    "noise",
+    "yamux",
+    "websocket",
+    "macros",
+    "tokio",
+    "relay",
+    "ping",
+    "dns",
+    "serde",
+    "identify",
+    "upnp",
+    "kad",
+    "autonat",
+] }
 multihash = "0.19.5"
+rand = { version = "0.8.7", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.1", features = [
     "rt-multi-thread",

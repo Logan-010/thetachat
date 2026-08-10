@@ -29,7 +29,7 @@ func (s *Swarm) Id() peer.ID {
 }
 
 func (s *Swarm) Bootstrap() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := s.dht.Bootstrap(ctx); err != nil {
@@ -77,9 +77,20 @@ func New(config config.Config) (*Swarm, error) {
 		return nil, err
 	}
 
-	d, err := dht.New(h, dht.Mode(dht.ModeServer), dht.BootstrapPeers(bootstrap...))
+	d, err := dht.New(h, dht.Mode(dht.ModeServer), dht.BootstrapPeers(bootstrap...), dht.ProtocolPrefix("/thetachat"))
 	if err != nil {
 		return nil, err
+	}
+
+	for _, info := range bootstrap {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := h.Connect(ctx, info); err != nil {
+			log.Printf("Failed to connect to \"%s\": %s\n", info.ID.String(), err)
+		}
+
+		cancel()
 	}
 
 	db, err := bbolt.Open(config.Datastore, 0600, nil)

@@ -61,11 +61,19 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             })) => {
                 let key = p.key.as_ref();
 
-                if key.len() <= 80
-                    && multihash::Multihash::<64>::from_bytes(key).is_ok()
-                    && let Err(e) = swarm.behaviour_mut().kad.store_mut().add_provider(p)
-                {
-                    tracing::warn!("Failed to add provider record: {}", e);
+                if key.len() <= 80 && multihash::Multihash::<64>::from_bytes(key).is_ok() {
+                    if let Err(e) = swarm
+                        .behaviour_mut()
+                        .kad
+                        .store_mut()
+                        .add_provider(p.clone())
+                    {
+                        tracing::warn!("Failed to add provider record: {}", e);
+                    } else {
+                        tracing::trace!("Added provider record: {:?}", p);
+                    }
+                } else {
+                    tracing::trace!("Rejecting invalid provider record.");
                 }
             }
             SwarmEvent::Behaviour(BehaviourEvent::Kad(k)) => {
@@ -92,6 +100,9 @@ pub async fn task(config: Config) -> color_eyre::Result<()> {
             SwarmEvent::Behaviour(BehaviourEvent::Upnp(upnp::Event::ExpiredExternalAddr(a))) => {
                 tracing::warn!("External address expired: {}", a);
                 swarm.remove_external_address(&a);
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Autonat(a)) => {
+                tracing::trace!("Autonat event: {:?}", a);
             }
             ev => tracing::trace!("Swarm event: {:?}", ev),
         }

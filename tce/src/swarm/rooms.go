@@ -2,56 +2,55 @@ package swarm
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
-	"github.com/ipfs/go-cid"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/multiformats/go-multihash"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
-func (s *Swarm) discoverPeers(ctx context.Context, cid cid.Cid) {
-	providers := s.dht.FindProvidersAsync(ctx, cid, 0)
+func (s *Swarm) handleMessage(msg *pubsub.Message) error {
+	return errors.New("unimplemented")
+}
 
-	for peer := range providers {
-		if peer.ID == s.host.ID() || s.host.Network().Connectedness(peer.ID) == network.Connected {
+func (s *Swarm) discoverPeers(ctx context.Context, name string) {
+	routingDiscovery := drouting.NewRoutingDiscovery(s.dht)
+	dutil.Advertise(ctx, routingDiscovery, name)
+
+	peerChan, err := routingDiscovery.FindPeers(ctx, name)
+	if err != nil {
+		log.Printf("Failed to discover peers for \"%s\": %s", name, err)
+		return
+	}
+
+	for peer := range peerChan {
+		if peer.ID == s.host.ID() {
 			continue
 		}
 
-		log.Printf("Connecting to \"%s\"\n", peer.ID.String())
+		c, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
 
-		if err := s.host.Connect(ctx, peer); err != nil {
-			log.Printf("Failure connecting to \"%s\": %s\n", peer.ID.String(), err)
+		if err := s.host.Connect(c, peer); err != nil {
+			log.Printf("Failed to connect to peer \"%s\": %s", peer.ID.String(), err)
+			continue
 		}
+
+		cancel()
+
+		log.Printf("Connected to \"%s\"\n", peer.ID.String())
 	}
-
-}
-
-func (s *Swarm) handleMessage(msg *pubsub.Message) error {
-	log.Fatal("Unimplemented :(")
-
-	return nil
 }
 
 func (s *Swarm) JoinRoom(name string) error {
 	log.Printf("Joining room \"%s\"\n", name)
 
-	mh, err := multihash.Sum([]byte(name), multihash.BLAKE3, -1)
-	if err != nil {
-		return err
-	}
-
-	cid := cid.NewCidV1(cid.Raw, mh)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := s.dht.Provide(ctx, cid, true); err != nil {
-		return err
-	}
-
-	cancel()
+	go s.discoverPeers(ctx, name)
 
 	topic, err := s.ps.Join(name)
 	if err != nil {
@@ -64,20 +63,6 @@ func (s *Swarm) JoinRoom(name string) error {
 		return err
 	}
 	defer sub.Cancel()
-
-	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
-	s.discoverPeers(ctx, cid)
-	cancel()
-
-	go func() {
-		t := time.NewTicker(time.Minute * 10)
-		defer t.Stop()
-		for range t.C {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			s.discoverPeers(ctx, cid)
-			cancel()
-		}
-	}()
 
 	for {
 		msg, err := sub.Next(context.Background())

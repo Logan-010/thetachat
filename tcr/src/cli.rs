@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[command(author = env!("CARGO_PKG_AUTHORS"))]
 pub struct Cli {
     /// Custom log level
-    #[arg(long, short = 'L', default_value_t = String::from("tcr=info,warn"))]
+    #[arg(long, short = 'L', env = "RUST_LOG", default_value_t = String::from("tcr=info,warn"))]
     pub logging: String,
 
     /// Custom config path

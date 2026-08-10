@@ -1,11 +1,14 @@
 {
-  "identity": "CAESQIzzqTlDMcutFDGQKyOOl9qMNZpFi+GBGVUkw+f2QQUdJQJDGZyOHMi5JMCmRPnv+w72UxR1/fEV1cjVxzk5NTs=",
+  "identity": "CAESQAEaNzF7HOW75kAF8tVeXn/1ECFpYq+OL3hV6S6VS7joRb2Y5ErMKCIEEUqfd4hmK3l5H60YzDN+Na/XS8rcpbM=",
   "datastore": "datastore.bin",
   "listenAddrs": [
     "/ip4/0.0.0.0/tcp/8803/ws",
-    "/ip6/::/tcp/8803/ws"
+    "/ip6/::/tcp/8803/ws",
+    "/ip4/0.0.0.0/udp/8803/webrtc-direct",
+    "/ip6/::/udp/8803/webrtc-direct"
   ],
-  "bootstrapAddrs": ["/ip4/127.0.0.1/tcp/8801/ws/p2p/12D3KooWPNT837xBYb4uY7LDDx3fg9AjJ6nHQ333rfSLdoJ6GgRn"],
+ "bootstrapAddrs": ["/ip4/127.0.0.1/tcp/8801/ws/p2p/12D3KooWPNT837xBYb4uY7LDDx3fg9AjJ6nHQ333rfSLdoJ6GgRn"],
+  "stunServers": null,
   "rooms": ["room1"],
   "clientConfig": null,
   "defaultConfig": {

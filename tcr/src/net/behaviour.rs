@@ -1,4 +1,7 @@
-use libp2p::{identify, identity::Keypair, kad, ping, relay, swarm::NetworkBehaviour, upnp};
+use libp2p::{
+    StreamProtocol, autonat, identify, identity::Keypair, kad, ping, relay,
+    swarm::NetworkBehaviour, upnp,
+};
 
 const THETACHAT_PROTO: &str = concat!("/thetachat/relay/", env!("CARGO_PKG_VERSION"));
 
@@ -9,6 +12,7 @@ pub struct Behaviour {
     identify: identify::Behaviour,
     pub(crate) kad: kad::Behaviour<kad::store::MemoryStore>,
     upnp: upnp::tokio::Behaviour,
+    autonat: autonat::v2::server::Behaviour,
 }
 
 impl Behaviour {
@@ -23,11 +27,12 @@ impl Behaviour {
             kad: kad::Behaviour::with_config(
                 keypair.public().to_peer_id(),
                 kad::store::MemoryStore::new(keypair.public().to_peer_id()),
-                kad::Config::default()
+                kad::Config::new(StreamProtocol::new("/thetachat/kad/1.0.0"))
                     .set_record_filtering(kad::StoreInserts::FilterBoth)
                     .clone(),
             ),
             upnp: upnp::tokio::Behaviour::default(),
+            autonat: autonat::v2::server::Behaviour::new(rand::rngs::OsRng),
         }
     }
 }

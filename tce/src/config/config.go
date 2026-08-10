@@ -24,6 +24,7 @@ type Config struct {
 	Datastore      string                `json:"datastore"`
 	ListenAddrs    []string              `json:"listenAddrs"`
 	BootstrapAddrs []string              `json:"bootstrapAddrs"`
+	StunServers    []string              `json:"stunServers"`
 	Rooms          []string              `json:"rooms"`
 	ClientConfig   map[string]SaveConfig `json:"clientConfig"`
 	DefaultConfig  SaveConfig            `json:"defaultConfig"`
@@ -55,6 +56,8 @@ func newConfig(at string) Config {
 		ListenAddrs: []string{
 			"/ip4/0.0.0.0/tcp/8802/ws",
 			"/ip6/::/tcp/8802/ws",
+			"/ip4/0.0.0.0/udp/8802/webrtc-direct",
+			"/ip6/::/udp/8802/webrtc-direct",
 		},
 	}
 }

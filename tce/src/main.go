@@ -28,7 +28,7 @@ func main() {
 	log.Println("Bootstrapping...")
 
 	if err := swarm.Bootstrap(); err != nil {
-		log.Fatal(err)
+		log.Printf("Bootstrap failed (continuing anyway): %s\n", err)
 	}
 
 	log.Printf("Started swarm for peer \"%s\", press ctrl+c to quit...\n", swarm.Id().String())
