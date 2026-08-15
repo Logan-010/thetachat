@@ -2,11 +2,15 @@ package swarm
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"tce/src/config"
 	"time"
 
+	"github.com/ipfs/boxo/bitswap"
+	"github.com/ipfs/boxo/blockstore"
+	"github.com/ipfs/go-ds-flatfs"
 	libp2p "github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -21,6 +25,7 @@ import (
 type Swarm struct {
 	host host.Host
 	dht  *dht.IpfsDHT
+	bs   *bitswap.Bitswap
 	ps   *pubsub.PubSub
 	db   *bbolt.DB
 }
@@ -45,6 +50,7 @@ func (s *Swarm) Bootstrap() error {
 }
 
 func (s *Swarm) Close() {
+	s.bs.Close()
 	s.dht.Close()
 	s.host.Close()
 	s.db.Close()
@@ -114,5 +120,19 @@ func New(config config.Config) (*Swarm, error) {
 		return nil, err
 	}
 
-	return &Swarm{h, d, ps, db}, nil
+	shard, err := flatfs.ParseShardFunc("/repo/flatfs/shard/v1/next-to-last/2")
+	if err != nil {
+		return nil, fmt.Errorf("parse flatfs shard function: %w", err)
+	}
+
+	ds, err := flatfs.CreateOrOpen(config.Blockstore, shard, true)
+	if err != nil {
+		return nil, fmt.Errorf("open blockstore: %w", err)
+	}
+
+	bs := blockstore.NewBlockstore(ds)
+
+	b := newBitswap(context.Background(), h, d, bs)
+
+	return &Swarm{h, d, b, ps, db}, nil
 }

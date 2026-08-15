@@ -22,6 +22,7 @@ type SaveConfig struct {
 type Config struct {
 	Identity      string                `json:"identity"`
 	Datastore     string                `json:"datastore"`
+	Blockstore    string                `json:"blockstore"`
 	ListenAddrs   []string              `json:"listenAddrs"`
 	Instances     []string              `json:"bootstrapAddrs"`
 	Rooms         []string              `json:"rooms"`
@@ -50,8 +51,9 @@ func newConfig(at string) Config {
 	}
 
 	return Config{
-		Identity:  base64.StdEncoding.EncodeToString(dat),
-		Datastore: filepath.Join(filepath.Dir(at), "datastore.bin"),
+		Identity:   base64.StdEncoding.EncodeToString(dat),
+		Datastore:  filepath.Join(filepath.Dir(at), "datastore"),
+		Blockstore: filepath.Join(filepath.Dir(at), "blockstore"),
 		ListenAddrs: []string{
 			"/ip4/0.0.0.0/tcp/8802/ws",
 			"/ip6/::/tcp/8802/ws",
