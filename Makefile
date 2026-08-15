@@ -1,14 +1,19 @@
 .PHONY: build
-build:
+build: tce tcr
+
+.PHONY: tce
+tce:
 	mkdir -p bin
-	cd tcr && cargo b --release
+	cd tce && make build
+	cp tce/bin/* bin
+
+.PHONY: tcr
+tcr:
+	mkdir -p bin
+	cd tcr && cargo +nightly b --release
 	cp tcr/target/release/tcr* bin
 	rm -f bin/*.d
 	rm -f bin/*.pdb
-	cd tce && make build
-	cp tce/bin/* bin
-	cd tcc && bun i && bun run build
-	cp -r tcc/dist bin/tcc
 
 .PHONY: install
 install: build

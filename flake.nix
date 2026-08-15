@@ -1,10 +1,17 @@
 {
   description = "Thetachat Flake";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    { nixpkgs, fenix, ... }:
     let
       systems = [
         "x86_64-linux"
@@ -13,65 +20,65 @@
         "aarch64-darwin"
       ];
 
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      forAllSystems =
+        f:
+        nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system} fenix.packages.${system});
     in
     {
-      packages = forAllSystems (pkgs: {
-        tce = pkgs.stdenv.mkDerivation {
-          pname = "tce";
-          version = "0.1.0";
+      packages = forAllSystems (
+        pkgs: fenixPkgs: {
 
-          src = ./.;
+          tce = pkgs.buildGoModule {
+            pname = "tce";
+            version = "0.1.0";
 
-          nativeBuildInputs = with pkgs; [
-            gnumake
-          ];
+            src = ./tce;
 
-          buildPhase = ''
-            make
-          '';
+            vendorHash = "sha256-u48i8723EmfYutK7U1pctnmexAgNEWfBMsF0W/b1NNw=";
 
-          installPhase = ''
-            mkdir -p $out/bin
-            cp bin/tce $out/bin/tce
-          '';
-        };
+            ldflags = [
+              "-s"
+              "-w"
+            ];
 
-        tcr = pkgs.stdenv.mkDerivation {
-          pname = "tcr";
-          version = "0.1.0";
+            subPackages = [ "src" ];
 
-          src = ./.;
+            postInstall = ''
+              mv $out/bin/src $out/bin/tce
+            '';
+          };
 
-          nativeBuildInputs = with pkgs; [
-            gnumake
-          ];
+          tcr =
+            let
+              rustPlatform = pkgs.makeRustPlatform {
+                cargo = fenixPkgs.complete.toolchain;
+                rustc = fenixPkgs.complete.toolchain;
+              };
+            in
+            rustPlatform.buildRustPackage {
+              pname = "tcr";
+              version = "0.1.0";
 
-          buildPhase = ''
-            make
-          '';
+              src = ./tcr;
 
-          installPhase = ''
-            mkdir -p $out/bin
-            cp bin/tcr $out/bin/tcr
-          '';
-        };
-      });
+              cargoLock = {
+                lockFile = ./tcr/Cargo.lock;
+              };
+
+              installPhase = ''
+                mkdir -p $out/bin
+                install -Dm755 target/${pkgs.stdenv.hostPlatform.rust.rustcTarget}/release/tcr $out/bin/tcr
+              '';
+            };
+        }
+      );
 
       devShells = forAllSystems (
-        pkgs:
-        let
-          rustSrc = pkgs.rustPlatform.rustLibSrc;
-        in
-        {
+        pkgs: fenixPkgs: {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              # Rust
-              rustc
-              cargo
-              rust-analyzer
-              rustfmt
-              clippy
+              # Nightly Rust
+              fenixPkgs.complete.toolchain
 
               # LLVM / LLDB
               llvmPackages.llvm
@@ -95,8 +102,6 @@
               git
               gnumake
             ];
-
-            RUST_SRC_PATH = "${rustSrc}";
           };
         }
       );
