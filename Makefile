@@ -1,5 +1,5 @@
 .PHONY: build
-build: tce tcr
+build: tce tcr tcc
 
 .PHONY: tce
 tce:
@@ -14,6 +14,13 @@ tcr:
 	cp tcr/target/release/tcr* bin
 	rm -f bin/*.d
 	rm -f bin/*.pdb
+
+.PHONY: tcc
+tcc:
+	mkdir -p bin
+	rm -rf bin/tcc
+	cd tcc && bun run build
+	cp -r tcc/dist bin/tcc
 
 .PHONY: install
 install: build
