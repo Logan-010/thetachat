@@ -2,7 +2,9 @@ package swarm
 
 import (
 	"context"
+	"errors"
 	"log"
+	"tce/src/proto"
 	"time"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -11,8 +13,66 @@ import (
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
-func (s *Swarm) handleMessage(msg *pubsub.Message) error {
-	log.Printf("Got msg: %+v\n", msg)
+func (s *Swarm) handleMessage(topic *pubsub.Topic, msg *pubsub.Message) error {
+	user := msg.GetFrom()
+
+	cfg, exists := s.config.ClientConfig[user.String()]
+	if !exists {
+		cfg = s.config.DefaultConfig
+	}
+
+	// If we dont need to save anything skip parsing the message
+	if !cfg.SaveAttachments && !cfg.SaveMedia && cfg.SaveMessages {
+		return nil
+	}
+
+	parsed, err := proto.DecodeRequest(msg.Data)
+	if err != nil {
+		return err
+	}
+
+	switch parsed.Type {
+	case proto.RequestGet:
+		rq, err := s.Gather(parsed.Timestamp)
+		if err != nil {
+			return err
+		}
+
+		encoded := rq.Encode()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+		defer cancel()
+
+		topic.Publish(ctx, encoded)
+
+		cancel()
+	case proto.RequestMessage:
+		for _, msg := range parsed.Messages {
+			switch msg.Content.Type {
+			case proto.ContentAttachment:
+				if !cfg.SaveAttachments {
+					continue
+				}
+			case proto.ContentMedia:
+				if !cfg.SaveMedia {
+					continue
+				}
+			case proto.ContentMessage:
+				if !cfg.SaveMessages {
+					continue
+				}
+
+			default:
+				continue
+			}
+
+			if err := s.Put(msg); err != nil {
+				log.Printf("Error putting message into blockstore: %s\n", err)
+			}
+		}
+	default:
+		return errors.New("illegal message")
+	}
 
 	return nil
 }
@@ -91,7 +151,7 @@ func (s *Swarm) JoinRoom(name string) error {
 		}
 
 		go func() {
-			if err := s.handleMessage(msg); err != nil {
+			if err := s.handleMessage(topic, msg); err != nil {
 				log.Printf("Failed to handle message: %s\n", err)
 			}
 		}()

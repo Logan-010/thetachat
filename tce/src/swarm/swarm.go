@@ -23,11 +23,12 @@ import (
 )
 
 type Swarm struct {
-	host host.Host
-	dht  *dht.IpfsDHT
-	bs   *bitswap.Bitswap
-	ps   *pubsub.PubSub
-	db   *bbolt.DB
+	config config.Config
+	host   host.Host
+	dht    *dht.IpfsDHT
+	bs     *bitswap.Bitswap
+	ps     *pubsub.PubSub
+	db     *bbolt.DB
 }
 
 func (s *Swarm) Id() peer.ID {
@@ -134,5 +135,5 @@ func New(config config.Config) (*Swarm, error) {
 
 	b := newBitswap(context.Background(), h, d, bs)
 
-	return &Swarm{h, d, b, ps, db}, nil
+	return &Swarm{config, h, d, b, ps, db}, nil
 }
