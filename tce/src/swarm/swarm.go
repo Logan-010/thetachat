@@ -35,7 +35,7 @@ func (s *Swarm) Id() peer.ID {
 }
 
 func (s *Swarm) Bootstrap() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	for s.dht.RoutingTable().Size() == 0 {
