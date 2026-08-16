@@ -33,7 +33,7 @@ func (s *Swarm) handleMessage(topic *pubsub.Topic, msg *pubsub.Message) error {
 
 	switch parsed.Type {
 	case proto.RequestGet:
-		rq, err := s.Gather(parsed.Timestamp)
+		rq, err := s.gather(parsed.Timestamp)
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,9 @@ func (s *Swarm) handleMessage(topic *pubsub.Topic, msg *pubsub.Message) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 		defer cancel()
 
-		topic.Publish(ctx, encoded)
+		if err := topic.Publish(ctx, encoded); err != nil {
+			return err
+		}
 
 		cancel()
 	case proto.RequestMessage:
@@ -66,7 +68,7 @@ func (s *Swarm) handleMessage(topic *pubsub.Topic, msg *pubsub.Message) error {
 				continue
 			}
 
-			if err := s.Put(msg); err != nil {
+			if err := s.put(msg); err != nil {
 				log.Printf("Error putting message into blockstore: %s\n", err)
 			}
 		}

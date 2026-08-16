@@ -2,16 +2,22 @@ package swarm
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"tce/src/proto"
+	"time"
 
+	"github.com/ipfs/boxo/blockservice"
+	"github.com/ipfs/boxo/ipld/merkledag"
+	"github.com/ipfs/go-cid"
 	"go.etcd.io/bbolt"
 )
 
 const bucket string = "saved"
 
-func (s *Swarm) Gather(before int64) (proto.Request, error) {
+func (s *Swarm) gather(before int64) (proto.Request, error) {
 	messages, err := getBefore(s.db, []byte(bucket), before, 10)
 	if err != nil {
 		return proto.Request{}, err
@@ -31,10 +37,74 @@ func (s *Swarm) Gather(before int64) (proto.Request, error) {
 	return proto.Request{Type: proto.RequestMessage, Messages: decoded}, nil
 }
 
-func (s *Swarm) Put(msg proto.Message) error {
+func (s *Swarm) put(msg proto.Message) error {
 	encoded := msg.Encode()
 
-	return insertAt(s.db, []byte(bucket), msg.Timestamp, encoded)
+	if err := insertAt(s.db, []byte(bucket), msg.Timestamp, encoded); err != nil {
+		return err
+	}
+
+	if err := s.fetchContent(msg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Swarm) fetchContent(msg proto.Message) error {
+	switch msg.Content.Type {
+	case proto.ContentMessage:
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+
+		block, err := s.bs.GetBlock(ctx, msg.Content.CID)
+		if err != nil {
+			return err
+		}
+
+		cancel()
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
+		defer cancel()
+
+		if err := s.b.Put(ctx, block); err != nil {
+			return err
+		}
+
+		cancel()
+	case proto.ContentAttachment:
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		if err := fetchFile(ctx, msg.Content.CID, s.bls); err != nil {
+			return err
+		}
+
+		cancel()
+	case proto.ContentMedia:
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		if err := fetchFile(ctx, msg.Content.CID, s.bls); err != nil {
+			return err
+		}
+
+		cancel()
+	default:
+		return errors.New("illegal message")
+	}
+
+	return nil
+}
+
+func fetchFile(
+	ctx context.Context,
+	root cid.Cid,
+	blockservice blockservice.BlockService,
+) error {
+	dagService := merkledag.NewDAGService(blockservice)
+
+	return merkledag.FetchGraph(ctx, root, dagService)
 }
 
 func getBefore(

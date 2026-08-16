@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ipfs/boxo/bitswap"
+	"github.com/ipfs/boxo/blockservice"
 	"github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-ds-flatfs"
 	libp2p "github.com/libp2p/go-libp2p"
@@ -27,6 +28,8 @@ type Swarm struct {
 	host   host.Host
 	dht    *dht.IpfsDHT
 	bs     *bitswap.Bitswap
+	b      blockstore.Blockstore
+	bls    blockservice.BlockService
 	ps     *pubsub.PubSub
 	db     *bbolt.DB
 }
@@ -52,6 +55,7 @@ func (s *Swarm) Bootstrap() error {
 
 func (s *Swarm) Close() {
 	s.bs.Close()
+	s.bls.Close()
 	s.dht.Close()
 	s.host.Close()
 	s.db.Close()
@@ -131,9 +135,11 @@ func New(config config.Config) (*Swarm, error) {
 		return nil, fmt.Errorf("open blockstore: %w", err)
 	}
 
-	bs := blockstore.NewBlockstore(ds)
+	b := blockstore.NewBlockstore(ds)
 
-	b := newBitswap(context.Background(), h, d, bs)
+	bs := newBitswap(context.Background(), h, d, b)
 
-	return &Swarm{config, h, d, b, ps, db}, nil
+	bls := blockservice.New(b, bs)
+
+	return &Swarm{config, h, d, bs, b, bls, ps, db}, nil
 }
