@@ -4,8 +4,11 @@ import (
 	"log"
 
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/polydawn/refmt/cbor"
 )
+
+const SwapProtocol protocol.ID = "/thetachat/swap/1.0.0"
 
 const (
 	ContentMessage = iota
@@ -20,7 +23,7 @@ type MessageContent struct {
 
 type Message struct {
 	Timestamp int64
-	Username  string
+	Name      string
 	Content   MessageContent
 }
 

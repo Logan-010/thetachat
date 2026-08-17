@@ -9,16 +9,17 @@ import (
 	"tce/src/proto"
 	"time"
 
-	"github.com/ipfs/boxo/blockservice"
-	"github.com/ipfs/boxo/ipld/merkledag"
 	"github.com/ipfs/go-cid"
+	"github.com/polydawn/refmt/cbor"
 	"go.etcd.io/bbolt"
+	"golang.org/x/sync/errgroup"
 )
 
-const bucket string = "saved"
+const meta string = "meta"
+const blocks string = "blocks"
 
 func (s *Swarm) gather(before int64) (proto.Request, error) {
-	messages, err := getBefore(s.db, []byte(bucket), before, 10)
+	messages, err := getBefore(s.db, before, 10)
 	if err != nil {
 		return proto.Request{}, err
 	}
@@ -40,7 +41,7 @@ func (s *Swarm) gather(before int64) (proto.Request, error) {
 func (s *Swarm) put(msg proto.Message) error {
 	encoded := msg.Encode()
 
-	if err := insertAt(s.db, []byte(bucket), msg.Timestamp, encoded); err != nil {
+	if err := insertAt(s.db, msg.Timestamp, encoded); err != nil {
 		return err
 	}
 
@@ -51,23 +52,46 @@ func (s *Swarm) put(msg proto.Message) error {
 	return nil
 }
 
+func (s *Swarm) getCids() ([]cid.Cid, error) {
+	bucket := []byte(blocks)
+
+	var cids []cid.Cid
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucket)
+		if b == nil {
+			return nil
+		}
+
+		c := b.Cursor()
+
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			_, cid, err := cid.CidFromBytes(k)
+			if err != nil {
+				return err
+			}
+
+			cids = append(cids, cid)
+		}
+
+		return nil
+	})
+
+	return cids, err
+}
+
 func (s *Swarm) fetchContent(msg proto.Message) error {
 	switch msg.Content.Type {
 	case proto.ContentMessage:
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
 
-		block, err := s.bs.GetBlock(ctx, msg.Content.CID)
+		block, err := s.swapGetBlock(ctx, msg.Content.CID)
 		if err != nil {
 			return err
 		}
 
-		cancel()
-
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second*15)
-		defer cancel()
-
-		if err := s.b.Put(ctx, block); err != nil {
+		if err := putBlock(s.db, msg.Content.CID, block); err != nil {
 			return err
 		}
 
@@ -76,7 +100,30 @@ func (s *Swarm) fetchContent(msg proto.Message) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		if err := fetchFile(ctx, msg.Content.CID, s.bls); err != nil {
+		cidsRaw, err := s.swapGetBlock(ctx, msg.Content.CID)
+		if err != nil {
+			return err
+		}
+
+		var cids []cid.Cid
+		if err := cbor.Unmarshal(cbor.DecodeOptions{}, cidsRaw, &cids); err != nil {
+			return err
+		}
+
+		g, ctx := errgroup.WithContext(ctx)
+
+		for _, c := range cids {
+			g.Go(func() error {
+				block, err := s.swapGetBlock(ctx, c)
+				if err != nil {
+					return err
+				}
+
+				return putBlock(s.db, c, block)
+			})
+		}
+
+		if err := g.Wait(); err != nil {
 			return err
 		}
 
@@ -85,7 +132,30 @@ func (s *Swarm) fetchContent(msg proto.Message) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		if err := fetchFile(ctx, msg.Content.CID, s.bls); err != nil {
+		cidsRaw, err := s.swapGetBlock(ctx, msg.Content.CID)
+		if err != nil {
+			return err
+		}
+
+		var cids []cid.Cid
+		if err := cbor.Unmarshal(cbor.DecodeOptions{}, cidsRaw, &cids); err != nil {
+			return err
+		}
+
+		g, ctx := errgroup.WithContext(ctx)
+
+		for _, c := range cids {
+			g.Go(func() error {
+				block, err := s.swapGetBlock(ctx, c)
+				if err != nil {
+					return err
+				}
+
+				return putBlock(s.db, c, block)
+			})
+		}
+
+		if err := g.Wait(); err != nil {
 			return err
 		}
 
@@ -97,22 +167,13 @@ func (s *Swarm) fetchContent(msg proto.Message) error {
 	return nil
 }
 
-func fetchFile(
-	ctx context.Context,
-	root cid.Cid,
-	blockservice blockservice.BlockService,
-) error {
-	dagService := merkledag.NewDAGService(blockservice)
-
-	return merkledag.FetchGraph(ctx, root, dagService)
-}
-
 func getBefore(
 	db *bbolt.DB,
-	bucket []byte,
 	before int64,
 	limit int,
 ) ([][]byte, error) {
+	bucket := []byte(meta)
+
 	var results [][]byte
 
 	err := db.View(func(tx *bbolt.Tx) error {
@@ -147,10 +208,11 @@ func getBefore(
 
 func insertAt(
 	db *bbolt.DB,
-	bucket []byte,
 	timestamp int64,
 	value []byte,
 ) error {
+	bucket := []byte(meta)
+
 	return db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucket)
 		if b == nil {
@@ -167,4 +229,46 @@ func encodeTimestamp(ts int64) []byte {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], uint64(ts))
 	return buf[:]
+}
+
+func getBlock(db *bbolt.DB, cid cid.Cid) ([]byte, error) {
+	bucket := []byte(blocks)
+
+	var block []byte
+
+	err := db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucket)
+		if b == nil {
+			return fmt.Errorf("bucket %q not found", bucket)
+		}
+
+		block = b.Get(cid.Bytes())
+
+		if block == nil {
+			return fmt.Errorf("block %q not found", cid.Bytes())
+		}
+
+		return nil
+	})
+
+	return block, err
+}
+
+func putBlock(db *bbolt.DB, cid cid.Cid, block []byte) error {
+	bucket := []byte(blocks)
+
+	err := db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucket)
+		if b == nil {
+			return fmt.Errorf("bucket %q not found", bucket)
+		}
+
+		if err := b.Put(cid.Bytes(), block); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return err
 }

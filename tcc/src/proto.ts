@@ -7,7 +7,7 @@ export type MessageContent =
 
 export type Message = [
   timestamp: bigint,
-  username: string,
+  name: string,
   content: MessageContent
 ]
 

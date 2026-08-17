@@ -2,16 +2,12 @@ package swarm
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 	"tce/src/config"
+	"tce/src/proto"
 	"time"
 
-	"github.com/ipfs/boxo/bitswap"
-	"github.com/ipfs/boxo/blockservice"
-	"github.com/ipfs/boxo/blockstore"
-	"github.com/ipfs/go-ds-flatfs"
 	libp2p "github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -27,9 +23,6 @@ type Swarm struct {
 	config config.Config
 	host   host.Host
 	dht    *dht.IpfsDHT
-	bs     *bitswap.Bitswap
-	b      blockstore.Blockstore
-	bls    blockservice.BlockService
 	ps     *pubsub.PubSub
 	db     *bbolt.DB
 }
@@ -54,8 +47,6 @@ func (s *Swarm) Bootstrap() error {
 }
 
 func (s *Swarm) Close() {
-	s.bs.Close()
-	s.bls.Close()
 	s.dht.Close()
 	s.host.Close()
 	s.db.Close()
@@ -125,21 +116,20 @@ func New(config config.Config) (*Swarm, error) {
 		return nil, err
 	}
 
-	shard, err := flatfs.ParseShardFunc("/repo/flatfs/shard/v1/next-to-last/2")
+	swarm := &Swarm{config, h, d, ps, db}
+
+	swarm.host.SetStreamHandler(proto.SwapProtocol, swarm.swapHandler)
+
+	cids, err := swarm.getCids()
 	if err != nil {
-		return nil, fmt.Errorf("parse flatfs shard function: %w", err)
+		return nil, err
 	}
 
-	ds, err := flatfs.CreateOrOpen(config.Blockstore, shard, true)
-	if err != nil {
-		return nil, fmt.Errorf("open blockstore: %w", err)
+	for _, cid := range cids {
+		if err := swarm.dht.Provide(context.Background(), cid, true); err != nil {
+			return nil, err
+		}
 	}
 
-	b := blockstore.NewBlockstore(ds)
-
-	bs := newBitswap(context.Background(), h, d, b)
-
-	bls := blockservice.New(b, bs)
-
-	return &Swarm{config, h, d, bs, b, bls, ps, db}, nil
+	return swarm, nil
 }
