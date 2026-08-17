@@ -7,6 +7,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@libp2p/circuit-relay-v2": "^4.2.11",
+    "@libp2p/crypto": "^5.1.22",
+    "@libp2p/gossipsub": "^17.0.0",
+    "@libp2p/identify": "^4.1.12",
+    "@libp2p/interface": "^3.2.5",
+    "@libp2p/kad-dht": "^16.4.3",
+    "@libp2p/ping": "^3.1.11",
+    "@libp2p/webrtc": "^6.0.29",
+    "@libp2p/websockets": "^10.1.19",
+    "blockstore-core": "^7.0.1",
+    "cbor2": "^2.3.0",
+    "ipfs-bitswap": "^20.0.2",
+    "libp2p": "^3.3.8",
     "multiformats": "^14.0.5",
     "preact": "^10.26.9",
     "preact-iso": "^2.12.1"
