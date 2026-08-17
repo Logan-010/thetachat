@@ -1,4 +1,4 @@
-import { createLibp2p } from "libp2p";
+import { createLibp2p, Libp2p } from "libp2p";
 import { Save } from "./save";
 import { webSockets } from "@libp2p/websockets";
 import { webRTC } from "@libp2p/webrtc";
@@ -9,12 +9,38 @@ import { identify } from "@libp2p/identify";
 import { kadDHT, removePrivateAddressesMapper } from "@libp2p/kad-dht";
 import { gossipsub } from "@libp2p/gossipsub";
 import { ping } from "@libp2p/ping";
-import { createBitswap } from "ipfs-bitswap";
-import { MemoryBlockstore } from "blockstore-core";
+import { IDBPDatabase } from "idb";
+import { open, save } from "./db";
+import { bootstrap } from "@libp2p/bootstrap";
+import { PROTOCOL } from "./proto";
+import { createHandler } from "./swap";
 
-export async function init(save: Save) {
+export class Network {
+  private node: Libp2p;
+  private db: IDBPDatabase;
+
+  constructor(node: Libp2p, db: IDBPDatabase) {
+    this.node = node;
+    this.db = db;
+  }
+
+  async exportDatabase() {
+    const data = await save(this.db);
+
+    return data;
+  }
+}
+
+export async function createNetwork(save: Save) {
+  const db = await open();
+
   const node = await createLibp2p({
     privateKey: save.keypair(),
+    peerDiscovery: [
+      bootstrap({
+        list: save.bootstrap
+      })
+    ],
     addresses: {
       listen: [
         '/p2p-circuit',
@@ -43,10 +69,7 @@ export async function init(save: Save) {
   });
   await node.start();
 
-  const blockstore = new MemoryBlockstore();
+  await node.handle(PROTOCOL, createHandler(db));
 
-  const bitswap = createBitswap(node as any, blockstore as any);
-
-  await bitswap.start();
-
+  return new Network(node, db);
 }

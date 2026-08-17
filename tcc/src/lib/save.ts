@@ -1,25 +1,34 @@
 import { generateKeyPair, privateKeyFromRaw } from "@libp2p/crypto/keys";
 import { decode, encode } from "cbor2";
+import { Network } from "./net";
 
 export class Save {
   private identity: Uint8Array;
   alias: string;
   bootstrap: string[];
   rooms: string[];
+  database?: Uint8Array;
 
-  constructor(identity: Uint8Array, alias: string, bootstrap: string[], rooms: string[]) {
+  constructor(identity: Uint8Array, alias: string, bootstrap: string[], rooms: string[], database?: Uint8Array) {
     this.identity = identity;
     this.alias = alias;
     this.bootstrap = bootstrap;
     this.rooms = rooms;
-  }
 
+    if (database) {
+      this.database = database;
+    }
+  }
 
   keypair() {
     return privateKeyFromRaw(this.identity);
   }
 
-  encode() {
+  async encode(network?: Network) {
+    if (network) {
+      this.database = await network.exportDatabase();
+    }
+    
     return encode(this);
   }
 }
