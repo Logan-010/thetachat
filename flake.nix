@@ -34,7 +34,7 @@
 
             src = ./tce;
 
-            vendorHash = "sha256-IaBaMxuEScEaT42jaZcy4mKpdlcDKllX4u7sSvSg7V4=";
+            vendorHash = "sha256-RGePlo8xbs75GhkRgMwTOAMlCU2/VOz+yEUIpyf54hU=";
 
             ldflags = [
               "-s"
