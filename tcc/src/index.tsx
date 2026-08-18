@@ -1,14 +1,15 @@
 import "./style.css";
 
 import { render } from "preact";
-import { LocationProvider, Router, Route } from "preact-iso";
+import { LocationProvider, Router, Route, lazy } from "preact-iso";
 import { AppProvider } from "./context";
 
 import Header from "./components/Header.jsx";
 
 import NotFound from "./pages/_404.jsx";
 
-import Home from "./pages/Home/index.jsx";
+const Home = lazy(() => import("./pages/Home"));
+const Save = lazy(() => import("./pages/Save"));
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
         <main>
           <Router>
             <Route path="/" component={Home} />
+            <Route path="/save" component={Save} />
             <Route default component={NotFound} />
           </Router>
         </main>

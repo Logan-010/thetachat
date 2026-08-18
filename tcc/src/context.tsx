@@ -1,25 +1,38 @@
-import { createContext } from 'preact';
-import { useContext, useState } from 'preact/hooks';
-import { Save } from './lib/save';
-import { Network } from './lib/net';
+import { createContext, type ComponentChildren } from "preact";
+import { useContext, useState } from "preact/hooks";
 
-const AppContext = createContext(null);
+import { Save } from "./lib/save";
+import { Network } from "./lib/net";
 
-export function AppProvider({ children }) {
-  const [save, setSave] = useState<null | Save>(null);
-  const [network, setNetwork] = useState<null | Network>(null);
+type AppContextType = {
+  save: Save | null;
+  setSave: (save: Save | null) => void;
+  network: Network | null;
+  setNetwork: (network: Network | null) => void;
+};
 
-  const value = {
-    save, setSave, network, setNetwork
+const AppContext = createContext<AppContextType | null>(null);
+
+export function AppProvider({ children }: { children: ComponentChildren }) {
+  const [save, setSave] = useState<Save | null>(null);
+  const [network, setNetwork] = useState<Network | null>(null);
+
+  const value: AppContextType = {
+    save,
+    setSave,
+    network,
+    setNetwork,
   };
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
-export function useApp() {
-  return useContext(AppContext);
+export function useApp(): AppContextType {
+  const context = useContext(AppContext);
+
+  if (context === null) {
+    throw new Error("useApp must be used within an AppProvider");
+  }
+
+  return context;
 }

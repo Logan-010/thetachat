@@ -19,25 +19,25 @@ export async function open() {
 }
 
 export async function cids(db: IDBPDatabase) {
-    const tx = db.transaction("blocks", "readonly");
-    const store = tx.objectStore("blocks");
-    const keys = await store.getAllKeys();
+  const tx = db.transaction("blocks", "readonly");
+  const store = tx.objectStore("blocks");
+  const keys = await store.getAllKeys();
 
-    let cids: CID[] = [];
+  let cids: CID[] = [];
 
-    for (i = 0; i < keys.length; i++) {
-      const cidstr = keys[i];
+  for (let i = 0; i < keys.length; i++) {
+    const cidstr = keys[i];
 
-      cids.push(CID.parse(cidstr.toString()));
-    }
+    cids.push(CID.parse(cidstr.toString()));
+  }
 
-    return cids;
+  return cids;
 }
 
 export async function save(db: IDBPDatabase) {
   const data: ExportedDatabase = {
     meta: {},
-    blocks: {}
+    blocks: {},
   };
 
   {
@@ -73,8 +73,8 @@ export async function load(db: IDBPDatabase, cborData: Uint8Array) {
   if (
     typeof decoded.meta !== "object" ||
     decoded.meta === null ||
-    Array.isArray(decoded.meta)
-    || typeof decoded.blocks !== "object" ||
+    Array.isArray(decoded.meta) ||
+    typeof decoded.blocks !== "object" ||
     decoded.blocks === null ||
     Array.isArray(decoded.blocks)
   ) {

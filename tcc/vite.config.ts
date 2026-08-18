@@ -5,4 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [preact(), tailwindcss()],
+
+  build: {
+    chunkSizeWarningLimit: 800,
+  },
 });

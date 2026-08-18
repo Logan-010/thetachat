@@ -35,38 +35,35 @@ export async function createNetwork(save: Save) {
   const db = await open();
 
   const node = await createLibp2p({
-    privateKey: save.keypair(),
-    peerDiscovery: [
-      bootstrap({
-        list: save.bootstrap
-      })
-    ],
+    privateKey: await save.keypair(),
+    peerDiscovery:
+      save.bootstrap.length > 0
+        ? [
+            bootstrap({
+              list: save.bootstrap,
+            }),
+          ]
+        : [],
     addresses: {
-      listen: [
-        '/p2p-circuit',
-        '/webrtc'
-      ]
+      listen: ["/p2p-circuit", "/webrtc"],
     },
-    transports: [
-      webSockets(),
-      webRTC(),
-      circuitRelayTransport()
-    ],
+    transports: [webSockets(), webRTC(), circuitRelayTransport()],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     connectionGater: {
-      denyDialMultiaddr: () => false
+      denyDialMultiaddr: () => false,
     },
     services: {
       identify: identify(),
       aminoDHT: kadDHT({
-        protocol: '/thetachat/kad/1.0.0',
-        peerInfoMapper: removePrivateAddressesMapper
+        protocol: "/thetachat/kad/1.0.0",
+        peerInfoMapper: removePrivateAddressesMapper,
       }),
       ping: ping(),
       gossipsub: gossipsub(),
-    }
+    },
   });
+
   await node.start();
 
   await node.handle(PROTOCOL, createHandler(db));
