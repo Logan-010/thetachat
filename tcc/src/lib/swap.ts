@@ -41,7 +41,7 @@ export function createHandler(db: IDBPDatabase) {
       );
 
       const block = await db.get(
-        "kv",
+        "blocks",
         requestedCID.toString()
       ) as Uint8Array | undefined;
 

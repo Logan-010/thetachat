@@ -10,7 +10,7 @@ import { kadDHT, removePrivateAddressesMapper } from "@libp2p/kad-dht";
 import { gossipsub } from "@libp2p/gossipsub";
 import { ping } from "@libp2p/ping";
 import { IDBPDatabase } from "idb";
-import { open, save } from "./db";
+import { cids, open, save } from "./db";
 import { bootstrap } from "@libp2p/bootstrap";
 import { PROTOCOL } from "./proto";
 import { createHandler } from "./swap";
@@ -70,6 +70,10 @@ export async function createNetwork(save: Save) {
   await node.start();
 
   await node.handle(PROTOCOL, createHandler(db));
+
+  for (const cid of await cids(db)) {
+    node.services.aminoDHT.provide(cid);
+  }
 
   return new Network(node, db);
 }

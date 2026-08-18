@@ -2,6 +2,7 @@ import "./style.css";
 
 import { render } from "preact";
 import { LocationProvider, Router, Route } from "preact-iso";
+import { AppProvider } from "./context";
 
 import Header from "./components/Header.jsx";
 
@@ -11,15 +12,17 @@ import Home from "./pages/Home/index.jsx";
 
 export function App() {
   return (
-    <LocationProvider>
-      <Header />
-      <main>
-        <Router>
-          <Route path="/" component={Home} />
-          <Route default component={NotFound} />
-        </Router>
-      </main>
-    </LocationProvider>
+    <AppProvider>
+      <LocationProvider>
+        <Header />
+        <main>
+          <Router>
+            <Route path="/" component={Home} />
+            <Route default component={NotFound} />
+          </Router>
+        </main>
+      </LocationProvider>
+    </AppProvider>
   );
 }
 
