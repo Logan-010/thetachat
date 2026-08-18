@@ -55,22 +55,44 @@ export async function createNetwork(save: Save) {
     },
     services: {
       identify: identify(),
-      aminoDHT: kadDHT({
+      dht: kadDHT({
         protocol: "/thetachat/kad/1.0.0",
         peerInfoMapper: removePrivateAddressesMapper,
+        clientMode: false,
       }),
       ping: ping(),
       gossipsub: gossipsub(),
     },
   });
 
+  console.log("starting node");
+
   await node.start();
+
+  console.log("bootstrap addresses:", save.bootstrap);
+
+  console.log(
+    "connected peers:",
+    node.getPeers().map((p) => p.toString()),
+  );
+
+  await node.services.dht.refreshRoutingTable();
+
+  node.addEventListener("peer:connect", (event) => {
+    console.log("connected to", event.detail.toString());
+  });
+
+  node.addEventListener("peer:discovery", (event) => {
+    console.log("discovered", event.detail.id.toString());
+  });
 
   await node.handle(PROTOCOL, createHandler(db));
 
-  for (const cid of await cids(db)) {
-    node.services.aminoDHT.provide(cid);
-  }
+  await Promise.all(
+    (await cids(db)).map(async (cid) => {
+      await node.services.dht.provide(cid);
+    }),
+  );
 
   return new Network(node, db);
 }

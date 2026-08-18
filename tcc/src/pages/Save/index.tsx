@@ -86,6 +86,10 @@ export default function Save() {
     setStorage("bootstrap", bootstrap);
     setStorage("rooms", rooms);
 
+    save.alias = alias;
+    save.bootstrap = bootstrap;
+    save.rooms = rooms;
+
     const network = await createNetwork(save);
 
     setNetwork(network);
