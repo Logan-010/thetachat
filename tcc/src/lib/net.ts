@@ -12,8 +12,10 @@ import { ping } from "@libp2p/ping";
 import { IDBPDatabase } from "idb";
 import { cids, open, save } from "./db";
 import { bootstrap } from "@libp2p/bootstrap";
-import { PROTOCOL } from "./proto";
-import { createHandler } from "./swap";
+import { SWAP_PROTOCOL } from "./proto";
+import { swapHandler } from "./swap";
+import { DM_PROTOCOL, dmHandler, Message, sendDm } from "./dm";
+import { peerIdFromString } from "@libp2p/peer-id";
 
 export class Network {
   private node: Libp2p;
@@ -22,6 +24,16 @@ export class Network {
   constructor(node: Libp2p, db: IDBPDatabase) {
     this.node = node;
     this.db = db;
+  }
+
+  async handleDms(callback: (msg: Message) => void) {
+    await this.node.handle(DM_PROTOCOL, dmHandler(this.db, callback));
+  }
+
+  async dm(to: string, content: string) {
+    const id = peerIdFromString(to);
+
+    await sendDm(this.node, id, content, AbortSignal.timeout(10_000));
   }
 
   async exportDatabase() {
@@ -39,10 +51,10 @@ export async function createNetwork(save: Save) {
     peerDiscovery:
       save.bootstrap.length > 0
         ? [
-            bootstrap({
-              list: save.bootstrap,
-            }),
-          ]
+          bootstrap({
+            list: save.bootstrap,
+          }),
+        ]
         : [],
     addresses: {
       listen: ["/p2p-circuit", "/webrtc"],
@@ -69,13 +81,6 @@ export async function createNetwork(save: Save) {
 
   await node.start();
 
-  console.log("bootstrap addresses:", save.bootstrap);
-
-  console.log(
-    "connected peers:",
-    node.getPeers().map((p) => p.toString()),
-  );
-
   await node.services.dht.refreshRoutingTable();
 
   node.addEventListener("peer:connect", (event) => {
@@ -86,13 +91,11 @@ export async function createNetwork(save: Save) {
     console.log("discovered", event.detail.id.toString());
   });
 
-  await node.handle(PROTOCOL, createHandler(db));
+  await node.handle(SWAP_PROTOCOL, swapHandler(db));
 
-  await Promise.all(
-    (await cids(db)).map(async (cid) => {
-      await node.services.dht.provide(cid);
-    }),
-  );
+  for (let cid of await cids(db)) {
+    node.services.dht.provide(cid);
+  }
 
   return new Network(node, db);
 }

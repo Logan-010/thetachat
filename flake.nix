@@ -92,7 +92,7 @@
               delve
 
               # JavaScript / TypeScript
-              bun
+              nodejs_26
               typescript
               typescript-language-server
 

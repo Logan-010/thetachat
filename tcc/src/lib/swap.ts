@@ -1,9 +1,9 @@
 import { Connection, DialTarget, Libp2p, Stream } from "@libp2p/interface";
 import { CID } from 'multiformats/cid'
 import { sha256 } from 'multiformats/hashes/sha2'
-import { PROTOCOL } from "./proto";
 import { Uint8ArrayList } from "uint8arraylist";
 import { IDBPDatabase } from "idb";
+import { SWAP_PROTOCOL } from "./proto";
 
 const MAX_BLOCK_SIZE = 64 << 20;
 const MAX_CID_SIZE = 1024;
@@ -31,7 +31,7 @@ async function readCID(stream: Stream): Promise<CID> {
   throw new Error("unexpected EOF while reading CID");
 }
 
-export function createHandler(db: IDBPDatabase) {
+export function swapHandler(db: IDBPDatabase) {
   return async (stream: Stream, connection: Connection) => {
     try {
       const requestedCID = await readCID(stream);
@@ -84,7 +84,7 @@ export async function getBlock(
 
   const stream = await libp2p.dialProtocol(
     peer,
-    PROTOCOL,
+    SWAP_PROTOCOL,
     {
       signal
     }

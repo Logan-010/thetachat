@@ -1,6 +1,6 @@
 import {CID} from "multiformats/cid";
 
-export const PROTOCOL = "/thetachat/swap/1.0.0";
+export const SWAP_PROTOCOL = "/thetachat/swap/1.0.0";
 
 export type MessageContent =
   | [0, CID] 

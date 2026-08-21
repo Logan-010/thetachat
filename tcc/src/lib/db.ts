@@ -5,6 +5,7 @@ import { CID } from "multiformats";
 type ExportedDatabase = {
   meta: Record<string, unknown>;
   blocks: Record<string, unknown>;
+  dms: Record<string, unknown>;
 };
 
 export async function open() {
@@ -12,6 +13,8 @@ export async function open() {
     upgrade(db) {
       db.createObjectStore("meta");
       db.createObjectStore("blocks");
+      const dms = db.createObjectStore("dms", {keyPath: "id"});
+      dms.createIndex("userId", "userId");
     },
   });
 
@@ -38,6 +41,7 @@ export async function save(db: IDBPDatabase) {
   const data: ExportedDatabase = {
     meta: {},
     blocks: {},
+    dms: {},
   };
 
   {
@@ -61,6 +65,19 @@ export async function save(db: IDBPDatabase) {
 
     for (let i = 0; i < keys.length; i++) {
       data.blocks[String(keys[i])] = values[i];
+    }
+  }
+
+
+  {
+    const tx = db.transaction("dms", "readonly");
+    const store = tx.objectStore("dms");
+
+    const keys = await store.getAllKeys();
+    const values = await store.getAll();
+
+    for (let i = 0; i < keys.length; i++) {
+      data.dms[String(keys[i])] = values[i];
     }
   }
 
@@ -101,6 +118,22 @@ export async function load(db: IDBPDatabase, cborData: Uint8Array) {
 
     const tx = db.transaction("blocks", "readwrite");
     const store = tx.objectStore("blocks");
+
+    await store.clear();
+
+    for (const [key, value] of Object.entries(data)) {
+      await store.put(value, key);
+    }
+
+    await tx.done;
+  }
+
+
+  {
+    const data = decoded.dms as Record<string, unknown>;
+
+    const tx = db.transaction("dms", "readwrite");
+    const store = tx.objectStore("dms");
 
     await store.clear();
 

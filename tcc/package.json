@@ -16,6 +16,7 @@
     "@libp2p/identify": "^4.1.12",
     "@libp2p/interface": "^3.2.5",
     "@libp2p/kad-dht": "^16.4.3",
+    "@libp2p/peer-id": "^6.0.14",
     "@libp2p/ping": "^3.1.11",
     "@libp2p/webrtc": "^6.0.29",
     "@libp2p/websockets": "^10.1.19",
@@ -25,12 +26,16 @@
     "multiformats": "^14.0.5",
     "preact": "^10.29.8",
     "preact-iso": "^2.12.2",
-    "uint8arraylist": "^3.0.2"
+    "uint8arraylist": "^3.0.2",
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "@preact/preset-vite": "^2.10.6",
+    "@tailwindcss/vite": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.1"
+  },
+  "allowScripts": {
+    "node-datachannel@0.32.3": true
   }
 }
