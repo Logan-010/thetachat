@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { useApp } from "../../context";
 import { createSave, importSave, loadSave, setStorage } from "../../lib/save";
 import Loading from "../../components/Loading";
+import ArrowUpRight from "../../components/ArrowUpRight";
 const { createNetwork } = await import("../../lib/net");
 import { useLocation } from "preact-iso";
 
@@ -185,15 +186,22 @@ export default function Save() {
   }
 
   return (
-    <div>
-      <h1>Identity and backup</h1>
-      {error && <p role="alert">{error}</p>}
-      {network && <p>Disconnect before editing your identity or network settings.</p>}
-      <fieldset disabled={busy || network !== null}>
+    <div class="mx-auto max-w-2xl space-y-6">
+      <div class="text-center">
+        <p class="section-label mb-3">{save ? "Your identity" : "Welcome to θchat"}</p>
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Identity and backup</h1>
+        <p class="mx-auto mt-3 max-w-md text-muted">A name, a connection, and a place to chat. Your identity and messages stay in your browser.</p>
+      </div>
+      {error && <p class="notice" role="alert">{error}</p>}
+      {network && <p class="rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent">Disconnect before editing your identity or network settings.</p>}
+      <fieldset class="panel min-w-0 p-5 sm:p-8" disabled={busy || network !== null}>
+      <legend class="sr-only">Identity and network settings</legend>
       {editingSave && (
-        <div>
+        <div class="space-y-7">
           <div>
+            <label class="field-label" htmlFor="alias">Your alias</label>
             <input
+              id="alias"
               type="text"
               placeholder="Enter alias..."
               value={alias}
@@ -203,11 +211,14 @@ export default function Save() {
             />
           </div>
 
-          <div>
-            <h3>Bootstrap Nodes</h3>
+          <div class="border-t border-line pt-6">
+            <label class="field-label" htmlFor="bootstrap-address">Bootstrap nodes</label>
+            <p class="mb-3 text-xs text-muted">Add a WebSocket address to connect with other peers.</p>
 
-            <div>
+            <div class="flex gap-2">
               <input
+                id="bootstrap-address"
+                class="font-mono text-xs"
                 type="text"
                 placeholder="Enter bootstrap address..."
                 value={bootstrapInput}
@@ -221,17 +232,17 @@ export default function Save() {
                 }}
               />
 
-              <button type="button" onClick={addBootstrap}>
+              <button class="btn" type="button" onClick={addBootstrap}>
                 Add
               </button>
             </div>
 
-            <ul>
+            <ul class="mt-3 space-y-2">
               {bootstrap.map((address, index) => (
-                <li key={address}>
-                  <span>{address}</span>
+                <li class="flex items-center justify-between gap-3 rounded-xl border border-line bg-soft/50 px-3 py-2" key={address}>
+                  <span class="min-w-0 break-all font-mono text-xs text-muted">{address}</span>
 
-                  <button type="button" onClick={() => removeBootstrap(index)}>
+                  <button class="btn-quiet hover:text-danger" type="button" aria-label={`Remove ${address}`} onClick={() => removeBootstrap(index)}>
                     Remove
                   </button>
                 </li>
@@ -239,11 +250,13 @@ export default function Save() {
             </ul>
           </div>
 
-          <div>
-            <h3>Rooms</h3>
+          <div class="border-t border-line pt-6">
+            <label class="field-label" htmlFor="room-name">Rooms</label>
+            <p class="mb-3 text-xs text-muted">Choose a shared room name. You can join more rooms later.</p>
 
-            <div>
+            <div class="flex gap-2">
               <input
+                id="room-name"
                 type="text"
                 placeholder="Enter room..."
                 value={roomInput}
@@ -257,17 +270,17 @@ export default function Save() {
                 }}
               />
 
-              <button type="button" onClick={addRoom}>
+              <button class="btn" type="button" onClick={addRoom}>
                 Add
               </button>
             </div>
 
-            <ul>
+            <ul class="mt-3 flex flex-wrap gap-2">
               {rooms.map((room, index) => (
-                <li key={room}>
-                  <span>{room}</span>
+                <li class="flex max-w-full items-center gap-2 rounded-xl border border-line bg-soft/50 py-1.5 pr-1.5 pl-3" key={room}>
+                  <span class="min-w-0 text-sm [overflow-wrap:anywhere]"><span class="mr-1 text-muted" aria-hidden="true">#</span>{room}</span>
 
-                  <button type="button" onClick={() => removeRoom(index)}>
+                  <button class="btn-quiet hover:text-danger" type="button" aria-label={`Remove ${room}`} onClick={() => removeRoom(index)}>
                     Remove
                   </button>
                 </li>
@@ -278,29 +291,35 @@ export default function Save() {
       )}
 
       {save !== null ? (
-        <div>
-          <button type="button" onClick={() => void act(connect)}>
-            Connect
+        <div class="mt-7 border-t border-line pt-6">
+          <button class="btn-primary w-full" type="button" onClick={() => void act(connect)}>
+            {busy ? "Connecting…" : "Connect"}<ArrowUpRight />
           </button>
 
         </div>
       ) : (
-        <div>
-          <button type="button" onClick={() => void act(create)}>
-            Create
+        <div class="mt-7 grid gap-3 border-t border-line pt-6 sm:grid-cols-2">
+          <button class="btn-primary" type="button" onClick={() => void act(create)}>
+            {busy ? "Creating…" : "Create"}
           </button>
 
-          <button type="button" onClick={load}>
+          <button class="btn" type="button" onClick={load}>
             Load
           </button>
 
-          <input ref={fileInputRef} type="file" hidden onChange={handleFile} />
         </div>
       )}
       </fieldset>
-      {save && <button type="button" disabled={busy} onClick={() => void act(saveFile)}>Export identity and messages</button>}
-      {save && !network && <button type="button" disabled={busy} onClick={load}>Import identity and messages</button>}
-      {save && <input ref={fileInputRef} type="file" hidden onChange={event => void act(() => handleFile(event))} />}
+      {save && <section class="panel p-5 sm:p-6" aria-label="Backups">
+        <h2 class="font-semibold">Keep a copy</h2>
+        <p class="mt-1 text-sm text-muted">Take your identity and conversation history with you.</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <button class="btn" type="button" disabled={busy} onClick={() => void act(saveFile)}>Export identity and messages</button>
+          {!network && <button class="btn" type="button" disabled={busy} onClick={load}>Import identity and messages</button>}
+        </div>
+      </section>}
+      <input ref={fileInputRef} type="file" hidden onChange={event => void act(() => handleFile(event))} />
+      <p class="text-center text-xs text-muted">Local history. Peer-to-peer connections. Your conversations.</p>
     </div>
   );
 }
