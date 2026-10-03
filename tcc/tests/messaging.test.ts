@@ -1,13 +1,13 @@
 import "fake-indexeddb/auto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { encode } from "cbor2";
+import { decode, encode } from "cbor2";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
 import { Uint8ArrayList } from "uint8arraylist";
 import { open, save, load, roomMessages, messageId } from "../src/lib/db.ts";
 import { decodeRequest, encodeRequest } from "../src/lib/proto.ts";
-import { dmHandler, sendDm } from "../src/lib/dm.ts";
+import { DM_PROTOCOL, LEGACY_DM_PROTOCOL, dmHandler, sendDm } from "../src/lib/dm.ts";
 import { getBlock } from "../src/lib/swap.ts";
 
 const goFixture = "a36474797065016974696d657374616d7000686d6573736167657381a36974696d657374616d70187b646e616d6565616c69636567636f6e74656e74a264747970650063636964582401551220c7d01489080858c56e777dbee9c4795a8dd29f351e4d3a6be4a282b22d3f87e1";
@@ -26,7 +26,7 @@ test("IndexedDB retains room and DM history across reopening and backup roundtri
   const record = { ...message, room: "general", id: messageId("general", message), text: "hello" };
   await db.put("messages", record);
   await db.put("messages", { ...record, room: "other", id: messageId("other", message) });
-  await db.put("dms", { id: "dm-1", userId: "bob", content: "private", timestamp: 123, direction: "outgoing" });
+  await db.put("dms", { id: "dm-1", userId: "bob", content: "private", timestamp: 123, direction: "outgoing", name: "Alice" });
   await db.put("blocks", new Uint8Array([1, 2, 3]), "block");
   const backup = await save(db);
   db.close();
@@ -37,6 +37,8 @@ test("IndexedDB retains room and DM history across reopening and backup roundtri
   await load(restored, backup);
   assert.deepEqual(await roomMessages(restored, "general"), [record]);
   assert.equal((await restored.get("dms", "dm-1")).direction, "outgoing");
+  assert.equal((await restored.get("dms", "dm-1")).name, "Alice");
+  assert.equal((await restored.get("dms", "dm-1")).timestamp, 123);
   // Key-path stores must be restored without supplying an explicit key.
   assert.deepEqual(await restored.get("blocks", "block"), new Uint8Array([1, 2, 3]));
   const isolated = await open("different-identity");
@@ -61,6 +63,7 @@ test("one DM stream becomes one saved message even when UTF-8 is fragmented", as
   let callbackCount = 0;
   let closed = false;
   const stream = {
+    protocol: LEGACY_DM_PROTOCOL,
     async *[Symbol.asyncIterator]() {
       for (const byte of bytes) yield new Uint8ArrayList(new Uint8Array([byte]));
     },
@@ -78,12 +81,66 @@ test("one DM stream becomes one saved message even when UTF-8 is fragmented", as
 test("DM sending waits for stream backpressure before closing", async () => {
   const calls: string[] = [];
   const stream = {
+    protocol: LEGACY_DM_PROTOCOL,
     send(bytes: Uint8Array) { assert.equal(new TextDecoder().decode(bytes), "test"); calls.push("send"); return false; },
     async onDrain() { calls.push("drain"); },
     async close() { calls.push("close"); },
   };
-  await sendDm({ dialProtocol: async () => stream } as any, {} as any, "test", AbortSignal.timeout(1000));
+  await sendDm({ dialProtocol: async (_, protocols) => {
+    assert.deepEqual(protocols, [DM_PROTOCOL, LEGACY_DM_PROTOCOL]);
+    return stream;
+  } } as any, {} as any, "test", AbortSignal.timeout(1000), { name: "Alice", timestamp: 123 });
   assert.deepEqual(calls, ["send", "drain", "close"]);
+});
+
+test("new DMs transmit and persist the sender alias and original message time", async () => {
+  const db = await open("dm-metadata-test");
+  const metadata = { name: "Alice 🌿", timestamp: 1_791_000_000_000 };
+  const content = "Hello 🌍\nwith metadata";
+  let sent: Uint8Array;
+  const outgoing = {
+    protocol: DM_PROTOCOL,
+    send(bytes: Uint8Array) { sent = bytes; return true; },
+    async close() {},
+  };
+  await sendDm({ dialProtocol: async () => outgoing } as any, {} as any, content, AbortSignal.timeout(1000), metadata);
+  assert.deepEqual(decode(sent!), { ...metadata, content });
+  const incoming = {
+    protocol: DM_PROTOCOL,
+    async *[Symbol.asyncIterator]() {
+      for (const byte of sent!) yield new Uint8ArrayList(new Uint8Array([byte]));
+    },
+    async close() {},
+  };
+  await dmHandler(db, msg => {
+    assert.equal(msg.name, metadata.name);
+    assert.equal(msg.timestamp, metadata.timestamp);
+  })(incoming as any, { remotePeer: { toString: () => "authenticated-sender" } } as any);
+  const [saved] = await db.getAll("dms");
+  assert.equal(saved.userId, "authenticated-sender");
+  assert.equal(saved.content, content);
+  assert.equal(saved.name, metadata.name);
+  assert.equal(saved.timestamp, metadata.timestamp);
+  db.close();
+});
+
+test("invalid DM metadata is rejected without saving a malformed message", async () => {
+  const db = await open("invalid-dm-metadata-test");
+  for (const payload of [
+    { name: "Alice", timestamp: "yesterday", content: "hello" },
+    { name: "", timestamp: 123, content: "hello" },
+    { name: "Alice", timestamp: -1, content: "hello" },
+    { name: "Alice", timestamp: 9e15, content: "hello" },
+  ]) {
+    const stream = {
+      protocol: DM_PROTOCOL,
+      async *[Symbol.asyncIterator]() { yield encode(payload); },
+      async close() {},
+    };
+    await assert.rejects(dmHandler(db, () => assert.fail("Unexpected message"))(stream as any, { remotePeer: { toString: () => "sender" } } as any), /Invalid direct message/);
+  }
+  assert.equal((await db.getAll("dms")).length, 0);
+  db.close();
 });
 
 test("swap verifies fragmented blocks against their CID", async () => {

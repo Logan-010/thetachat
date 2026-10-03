@@ -7,7 +7,7 @@ import ArrowUpRight from "../../components/ArrowUpRight";
 type Conversation = { type: "room" | "dm"; id: string };
 
 export default function Home() {
-  const { network } = useApp();
+  const { network, save } = useApp();
   const [version, setVersion] = useState(0);
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [contacts, setContacts] = useState<string[]>([]);
@@ -41,6 +41,11 @@ export default function Home() {
 
   function showError(error: unknown) {
     setError(error instanceof Error ? error.message : String(error));
+  }
+  function messageAlias(msg: RoomMessage | DirectMessage) {
+    if (msg.name?.trim()) return msg.name;
+    if (!("room" in msg) && msg.direction === "outgoing") return save?.alias || "You";
+    return "room" in msg ? "Unknown alias" : `${msg.userId.slice(0, 10)}…${msg.userId.slice(-6)}`;
   }
   async function act(action: () => Promise<void>) {
     setError("");
@@ -142,8 +147,11 @@ export default function Home() {
       <ol class={`max-h-[55dvh] space-y-4 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6 ${messages.length ? "flex-1" : "hidden"}`} aria-live="polite">{messages.map(msg => <li class={`flex ${!("room" in msg) && msg.direction === "outgoing" ? "justify-end" : "justify-start"}`} key={msg.id}>
         <div class={`max-w-[95%] min-w-0 rounded-2xl border px-4 py-3 sm:max-w-[85%] ${!("room" in msg) && msg.direction === "outgoing" ? "border-accent/15 bg-accent-soft" : "border-line bg-soft/50"}`}>
         <div class="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <strong class="min-w-0 text-xs font-semibold [overflow-wrap:anywhere]" title={"room" in msg ? msg.name : msg.userId}>{"room" in msg ? msg.name : msg.direction === "outgoing" ? "You" : `${msg.userId.slice(0, 10)}…${msg.userId.slice(-6)}`}</strong>
-          <time class="text-[11px] text-muted" title={new Date(msg.timestamp).toLocaleString()} dateTime={new Date(msg.timestamp).toISOString()}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
+          <strong class="min-w-0 text-sm font-semibold [overflow-wrap:anywhere]" title={"room" in msg ? msg.name : msg.userId}>
+            {messageAlias(msg)}
+            {!("room" in msg) && msg.direction === "outgoing" && <span class="font-normal text-muted"> (you)</span>}
+          </strong>
+          <time class="text-xs text-muted" title={new Date(msg.timestamp).toLocaleString()} dateTime={new Date(msg.timestamp).toISOString()}>{new Date(msg.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
         </div>
         <p class="whitespace-pre-wrap [overflow-wrap:anywhere]">{"room" in msg
           ? msg.text ?? (msg.content.type === 0 ? "Fetching message content…" : "Attachment/media message")

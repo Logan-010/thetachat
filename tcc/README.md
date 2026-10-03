@@ -60,8 +60,10 @@ reservations so browsers can establish direct-message streams through it.
 - Group messages are saved locally before publishing. Pending messages retry
   while connected, including after reconnecting. “Sent” means published to
   GossipSub, rather than an acknowledgment from every participant.
-- DMs use one UTF-8 message per stream. Successful outgoing sends and incoming
-  messages are stored locally. Failed sends retain the draft for retry.
+- DMs carry the sender's alias, original send time, and text in one CBOR payload
+  per stream. Successful outgoing sends and incoming messages are stored locally.
+  Failed sends retain the draft for retry. Every message displays its sender and
+  local date/time; the full timestamp is available on hover.
 - Leaving a room retains its local history. Clearing the site's browser data
   removes the saved identity and messages.
 - **Identity / backup → Export identity and messages** downloads a `.identity`
@@ -84,8 +86,12 @@ Messages: { type: 1, timestamp: 0, messages: [
 Text content is UTF-8 in SHA-256-addressed raw blocks. Blocks are announced through
 `/thetachat/kad/1.0.0` and exchanged using `/thetachat/swap/1.0.0`; received bytes
 are verified against the requested CID. History responses are scoped to the
-requested room and contain up to ten messages. DMs use the existing
-`/thetachat/dm/1.0.0` stream protocol. Attachment/media metadata is recognized;
+requested room and contain up to ten messages. DMs prefer
+`/thetachat/dm/2.0.0`, carrying `{ name, timestamp, content }` as CBOR. Clients also
+accept and negotiate the original `/thetachat/dm/1.0.0` UTF-8 stream protocol.
+Legacy incoming messages without an alias show the sender's peer ID and their
+local receive time; older outgoing history falls back to your current alias.
+Attachment/media metadata is recognized;
 this UI currently sends text messages.
 
 ## Checks

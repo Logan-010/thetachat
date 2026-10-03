@@ -14,7 +14,7 @@ import { cids, open, save as exportDb, load, roomMessages, messageId, type RoomM
 import { bootstrap } from "@libp2p/bootstrap";
 import { SWAP_PROTOCOL, decodeRequest, encodeRequest, MAX_MESSAGE_SIZE, type Message } from "./proto";
 import { getBlock, swapHandler } from "./swap";
-import { DM_PROTOCOL, dmHandler, type Message as DirectMessage, sendDm } from "./dm";
+import { DM_PROTOCOL, LEGACY_DM_PROTOCOL, dmHandler, type Message as DirectMessage, sendDm } from "./dm";
 import { peerIdFromString } from "@libp2p/peer-id";
 import type { PeerId } from "@libp2p/interface";
 import { CID } from "multiformats/cid";
@@ -71,7 +71,7 @@ export class Network {
 
   async start() {
     await this.node.handle(SWAP_PROTOCOL, swapHandler(this.db), { runOnLimitedConnection: true });
-    await this.node.handle(DM_PROTOCOL, dmHandler(this.db, () => this.changed()), { runOnLimitedConnection: true });
+    await this.node.handle([DM_PROTOCOL, LEGACY_DM_PROTOCOL], dmHandler(this.db, () => this.changed()), { runOnLimitedConnection: true });
     this.node.services.gossipsub.addEventListener("message", event => {
       const msg = event.detail;
       if (msg.type !== "signed" || !this.profile.rooms.includes(msg.topic)) return;
@@ -133,9 +133,10 @@ export class Network {
 
   async dm(to: string, content: string) {
     if (!content.trim()) throw new Error("Enter a message");
-    await sendDm(this.node, peerIdFromString(to), content, AbortSignal.timeout(15_000));
+    const metadata = { name: this.profile.alias, timestamp: Date.now() };
+    await sendDm(this.node, peerIdFromString(to), content, AbortSignal.timeout(15_000), metadata);
     await this.db.put("dms", {
-      id: crypto.randomUUID(), userId: to, content, timestamp: Date.now(), direction: "outgoing",
+      id: crypto.randomUUID(), userId: to, content, ...metadata, direction: "outgoing",
     } satisfies DirectMessage);
     this.changed();
   }
