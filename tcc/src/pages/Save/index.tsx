@@ -18,13 +18,20 @@ export default function Save() {
     setBootstrap(save.bootstrap);
     setRooms(save.rooms);
 
-    if (network) {
-      route("/");
-    }
   }, [save, network]);
 
   const [loading, setLoading] = useState(true);
   const [editingSave, setEditingSave] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function act(action: () => Promise<void>) {
+    setError("");
+    setBusy(true);
+    try { await action(); } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally { setBusy(false); }
+  }
 
   const [alias, setAlias] = useState("");
   const [bootstrap, setBootstrap] = useState<string[]>([]);
@@ -34,13 +41,13 @@ export default function Save() {
   const [roomInput, setRoomInput] = useState("");
 
   useEffect(() => {
-    loadSave()
+    (save ? Promise.resolve(save) : loadSave())
       .then((s) => {
         if (s != null) {
           setSave(s);
         }
       })
-      .catch((e) => alert(new String(e)))
+      .catch((e) => setError(String(e)))
       .finally(() => {
         setLoading(false);
         setEditingSave(true);
@@ -81,6 +88,7 @@ export default function Save() {
     if (save === null) {
       return;
     }
+    if (!alias.trim()) throw new Error("Enter an alias");
 
     setStorage("alias", alias);
     setStorage("bootstrap", bootstrap);
@@ -93,6 +101,7 @@ export default function Save() {
     const network = await createNetwork(save);
 
     setNetwork(network);
+    route("/");
   }
 
   async function create() {
@@ -110,7 +119,22 @@ export default function Save() {
       return;
     }
 
-    const content = await save.encode();
+    save.alias = alias;
+    save.bootstrap = bootstrap;
+    save.rooms = rooms;
+    setStorage("alias", alias);
+    setStorage("bootstrap", bootstrap);
+    setStorage("rooms", rooms);
+    let database: Uint8Array;
+    if (network) database = await network.exportDatabase();
+    else {
+      const { peerIdFromPrivateKey } = await import("@libp2p/peer-id");
+      const { open, save: exportDatabase } = await import("../../lib/db");
+      const db = await open(peerIdFromPrivateKey(await save.keypair()).toString());
+      try { database = await exportDatabase(db); } finally { db.close(); }
+    }
+    const content = await save.encode(database);
+    save.database = undefined;
 
     const result = new Uint8Array(new ArrayBuffer(content.byteLength));
     result.set(content);
@@ -144,13 +168,13 @@ export default function Save() {
     }
 
     try {
-      const content = await file.bytes();
+      const content = new Uint8Array(await file.arrayBuffer());
 
       const sv = await importSave(content);
 
       setSave(sv);
     } catch (e) {
-      alert(new String(e));
+      setError(String(e));
     } finally {
       input.value = "";
     }
@@ -162,6 +186,10 @@ export default function Save() {
 
   return (
     <div>
+      <h1>Identity and backup</h1>
+      {error && <p role="alert">{error}</p>}
+      {network && <p>Disconnect before editing your identity or network settings.</p>}
+      <fieldset disabled={busy || network !== null}>
       {editingSave && (
         <div>
           <div>
@@ -251,17 +279,14 @@ export default function Save() {
 
       {save !== null ? (
         <div>
-          <button type="button" onClick={connect}>
+          <button type="button" onClick={() => void act(connect)}>
             Connect
           </button>
 
-          <button type="button" onClick={saveFile}>
-            Save
-          </button>
         </div>
       ) : (
         <div>
-          <button type="button" onClick={create}>
+          <button type="button" onClick={() => void act(create)}>
             Create
           </button>
 
@@ -272,6 +297,10 @@ export default function Save() {
           <input ref={fileInputRef} type="file" hidden onChange={handleFile} />
         </div>
       )}
+      </fieldset>
+      {save && <button type="button" disabled={busy} onClick={() => void act(saveFile)}>Export identity and messages</button>}
+      {save && !network && <button type="button" disabled={busy} onClick={load}>Import identity and messages</button>}
+      {save && <input ref={fileInputRef} type="file" hidden onChange={event => void act(() => handleFile(event))} />}
     </div>
   );
 }

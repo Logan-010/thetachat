@@ -78,6 +78,7 @@ export async function createSave(
   bootstrap: string[],
   rooms: string[],
 ) {
+  if (!alias.trim()) throw new Error("Enter an alias");
   const { generateKeyPair } = await import("@libp2p/crypto/keys");
 
   const identity = await generateKeyPair("Ed25519");
@@ -95,6 +96,14 @@ export async function importSave(data: Uint8Array) {
 
   const value = decode<Save>(data);
 
+  if (!value || !(value.identity instanceof Uint8Array) ||
+      typeof value.alias !== "string" || !value.alias.trim() ||
+      !Array.isArray(value.bootstrap) || !value.bootstrap.every(item => typeof item === "string") ||
+      !Array.isArray(value.rooms) || !value.rooms.every(item => typeof item === "string") ||
+      (value.database !== undefined && !(value.database instanceof Uint8Array))) {
+    throw new Error("Invalid identity file");
+  }
+
   const save = new Save(
     value.identity,
     value.alias,
@@ -104,6 +113,14 @@ export async function importSave(data: Uint8Array) {
   );
 
   const keypair = await save.keypair();
+
+  if (save.database) {
+    const { peerIdFromPrivateKey } = await import("@libp2p/peer-id");
+    const { open, load } = await import("./db");
+    const db = await open(peerIdFromPrivateKey(keypair).toString());
+    try { await load(db, save.database); } finally { db.close(); }
+    save.database = undefined;
+  }
 
   setStorage("identity", uint8ArrayToBase64(keypair.raw));
   setStorage("alias", save.alias);

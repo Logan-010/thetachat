@@ -3,7 +3,7 @@ import { useApp } from "../context";
 import { useLocation } from "preact-iso";
 
 export default function Header() {
-  const { save, network } = useApp();
+  const { save, network, setNetwork } = useApp();
   const { route } = useLocation();
 
   useEffect(() => {
@@ -12,5 +12,11 @@ export default function Header() {
     }
   }, [save, network]);
 
-  return <p>TODO!</p>;
+  return <nav>
+    <a href="/">Chat</a>{" · "}<a href="/save">Identity / backup</a>
+    {network && <button type="button" onClick={async () => {
+      await network.stop();
+      setNetwork(null);
+    }}>Disconnect</button>}
+  </nav>;
 }

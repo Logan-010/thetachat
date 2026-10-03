@@ -33,6 +33,7 @@ async function readCID(stream: Stream): Promise<CID> {
 
 export function swapHandler(db: IDBPDatabase) {
   return async (stream: Stream, connection: Connection) => {
+    const timer = setTimeout(() => stream.abort(new Error("Swap request timed out")), 25_000);
     try {
       const requestedCID = await readCID(stream);
 
@@ -57,13 +58,14 @@ export function swapHandler(db: IDBPDatabase) {
         return;
       }
 
-      stream.send(block);
+      if (!stream.send(block)) await stream.onDrain({ signal: AbortSignal.timeout(25_000) });
     } catch (err) {
       console.error(
         "Failed to handle swap request:",
         err
       );
     } finally {
+      clearTimeout(timer);
       await stream.close();
     }
   };
@@ -90,8 +92,12 @@ export async function getBlock(
     }
   );
 
+  const onAbort = () => stream.abort(signal.reason);
+  signal.addEventListener("abort", onAbort, { once: true });
+  if (signal.aborted) onAbort();
+
   try {
-    stream.send(requestedCID.bytes);
+    if (!stream.send(requestedCID.bytes)) await stream.onDrain({ signal });
 
     const block = new Uint8ArrayList();
 
@@ -126,7 +132,7 @@ export async function getBlock(
 
     return bytes;
   } finally {
+    signal.removeEventListener("abort", onAbort);
     await stream.close();
   }
 }
-
